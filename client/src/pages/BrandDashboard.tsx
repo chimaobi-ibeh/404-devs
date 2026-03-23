@@ -14,16 +14,16 @@ export default function BrandDashboard() {
 
   return (
     <AppLayout>
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         {/* Page Header */}
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <h1 className="font-display text-5xl tracking-wider text-foreground">ADVERTISER_HUB</h1>
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6 md:mb-8">
+          <div className="min-w-0">
+            <h1 className="font-display text-3xl md:text-5xl tracking-wider text-foreground">ADVERTISER_HUB</h1>
             <p className="text-muted-foreground text-sm mt-1">Command center for your campaign operations</p>
           </div>
           <button
             onClick={() => setLocation("/brand/campaigns/new")}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-mono text-xs tracking-widest rounded hover:bg-primary/90 transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-mono text-xs tracking-widest rounded hover:bg-primary/90 transition-colors shrink-0"
           >
             <Rocket className="w-4 h-4" />
             QUICK LAUNCH
@@ -31,7 +31,7 @@ export default function BrandDashboard() {
         </div>
 
         {/* Stat Cards Row */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
           {/* Total Budget */}
           <div className="bg-card border border-border rounded-lg p-5">
             <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">TOTAL BUDGET</p>
@@ -75,9 +75,9 @@ export default function BrandDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Left column: Active Campaigns + System Logs */}
-          <div className="col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 md:space-y-6">
             {/* Active Campaigns Section */}
             <div className="bg-card border border-border rounded-lg p-6">
               <div className="flex items-center justify-between mb-5">

@@ -37,11 +37,11 @@ export default function ContentApproval() {
 
   return (
     <AppLayout>
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="font-display text-4xl tracking-wider text-foreground">REVIEW SUBMISSION</h1>
+        <div className="mb-4 md:mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-2">
+            <h1 className="font-display text-3xl md:text-4xl tracking-wider text-foreground">REVIEW SUBMISSION</h1>
             <span className="font-mono text-[9px] text-gold border border-gold/40 rounded px-2 py-0.5 tracking-widest">
               PENDING REVIEW
             </span>
@@ -51,9 +51,9 @@ export default function ContentApproval() {
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Main Panel */}
-          <div className="col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 md:space-y-6">
             {/* Video Player Placeholder */}
             <div className="bg-black rounded-lg border border-border overflow-hidden">
               <div className="relative aspect-video flex items-center justify-center bg-black">

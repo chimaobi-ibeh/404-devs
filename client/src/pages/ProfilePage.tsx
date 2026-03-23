@@ -281,7 +281,7 @@ export default function ProfilePage() {
                 <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Company Name</Label>
                 <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Acme Corp" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 <div className="space-y-1.5">
                   <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Industry</Label>
                   <Input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Fashion, Tech…" />
@@ -308,7 +308,7 @@ export default function ProfilePage() {
                 <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Bio</Label>
                 <Input value={bio} onChange={(e) => setBio(e.target.value)} placeholder="What you create…" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 <div className="space-y-1.5">
                   <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Niche</Label>
                   <Input value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="Fashion, Gaming…" />
@@ -335,7 +335,7 @@ export default function ProfilePage() {
                       <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Full Name</Label>
                       <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your legal name" />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                       <div className="space-y-1.5">
                         <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Date of Birth</Label>
                         <Input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
@@ -391,7 +391,7 @@ export default function ProfilePage() {
 
             {showSocialForm && (
               <form onSubmit={handleAddSocialAccount} className="border border-border rounded-lg p-4 space-y-3 bg-muted/20">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
                   <div className="space-y-1.5">
                     <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Platform</Label>
                     <select
@@ -409,7 +409,7 @@ export default function ProfilePage() {
                     <Input value={socialUsername} onChange={(e) => setSocialUsername(e.target.value)} placeholder="@handle" required />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
                   <div className="space-y-1.5">
                     <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Followers</Label>
                     <Input type="number" value={socialFollowers} onChange={(e) => setSocialFollowers(e.target.value)} placeholder="50000" />
@@ -482,7 +482,7 @@ export default function ProfilePage() {
 
             {showPortfolioForm && (
               <form onSubmit={handleAddPortfolioItem} className="border border-border rounded-lg p-4 space-y-3 bg-muted/20">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
                   <div className="space-y-1.5">
                     <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Campaign Title *</Label>
                     <Input value={portTitle} onChange={(e) => setPortTitle(e.target.value)} placeholder="Summer Launch" required />
@@ -492,7 +492,7 @@ export default function ProfilePage() {
                     <Input value={portBrand} onChange={(e) => setPortBrand(e.target.value)} placeholder="Acme Corp" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
                   <div className="space-y-1.5">
                     <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Platform</Label>
                     <select
@@ -514,7 +514,7 @@ export default function ProfilePage() {
                   <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Content URL</Label>
                   <Input value={portContentUrl} onChange={(e) => setPortContentUrl(e.target.value)} placeholder="https://…" />
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 md:gap-2">
                   <div className="space-y-1.5">
                     <Label className="font-mono text-[9px] tracking-widest uppercase text-muted-foreground">Impressions</Label>
                     <Input type="number" value={portImpressions} onChange={(e) => setPortImpressions(e.target.value)} placeholder="0" />

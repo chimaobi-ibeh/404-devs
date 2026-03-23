@@ -37,10 +37,10 @@ export default function CampaignCreate() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold mb-8">Create New Campaign</h1>
+      <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12">
+        <h1 className="text-3xl md:text-4xl font-bold mb-6 md:mb-8">Create New Campaign</h1>
 
-        <Card className="p-8">
+        <Card className="p-4 md:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Info */}
             <div>

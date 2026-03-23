@@ -38,11 +38,11 @@ export default function CreatorEarnings() {
 
   return (
     <AppLayout>
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         {/* Header */}
-        <div className="grid grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
           {/* Wallet Balance */}
-          <div className="col-span-2 bg-card border border-border rounded-lg p-6">
+          <div className="md:col-span-2 bg-card border border-border rounded-lg p-4 md:p-6">
             <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-2">WALLET BALANCE</p>
             <div className="flex items-baseline gap-3 mb-6">
               <p className="font-mono text-5xl text-signal font-bold">
@@ -98,8 +98,8 @@ export default function CreatorEarnings() {
 
         {/* Pending Escrow */}
         {pendingEarnings > 0 && (
-          <div className="grid grid-cols-3 gap-6 mb-6">
-            <div className="bg-card border border-border rounded-lg p-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
+            <div className="bg-card border border-border rounded-lg p-4 md:p-5">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-2">PENDING ESCROW</p>

@@ -135,7 +135,7 @@ export default function VyralMatch() {
           {/* Creator Cards Grid */}
           <div className="flex-1">
             {isLoading ? (
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
                   <div key={i} className="h-64 bg-muted animate-pulse rounded-lg" />
                 ))}
@@ -160,7 +160,7 @@ export default function VyralMatch() {
                         CREATOR #{matches[0].creatorId}
                       </h3>
                       <p className="font-mono text-[9px] text-muted-foreground mb-3">{matches[0].matchReason}</p>
-                      <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3 mb-4">
                         {[
                           { label: "AUDIENCE GROWTH", val: "+24.3%" },
                           { label: "AVG CPV", val: "$0.012" },
@@ -180,7 +180,7 @@ export default function VyralMatch() {
                 </div>
 
                 {/* Other cards */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                   {matches.slice(1).map((match) => (
                     <div key={match.id} className="bg-card border border-border rounded-lg overflow-hidden hover:border-primary/30 transition-colors">
                       <div className="relative">
@@ -215,7 +215,7 @@ export default function VyralMatch() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {/* Static placeholder cards */}
                 {[
                   { name: "LUMINARY_KAI", fit: "98.4", eng: "8.4%", followers: "284K" },

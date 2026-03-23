@@ -34,23 +34,17 @@ export default function CreatorDashboard() {
 
   return (
     <AppLayout>
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         {/* Header */}
-        <div className="mb-4">
-          <h1 className="font-display text-6xl tracking-wider text-foreground">CREATOR CONSOLE</h1>
-          {/* Status bar */}
-          <div className="flex items-center gap-4 mt-2">
-            <span className="w-2 h-2 rounded-full bg-signal animate-pulse" />
-            <p className="font-mono text-xs text-signal tracking-widest">
-              SYSTEM ONLINE &nbsp;|&nbsp; ACTIVE NODES: 1,204 &nbsp;|&nbsp; SIGNAL: HIGH
-            </p>
-          </div>
+        <div className="mb-4 md:mb-8">
+          <p className="font-mono text-xs text-muted-foreground tracking-widest uppercase mb-1">Welcome</p>
+          <h1 className="font-display text-4xl md:text-5xl tracking-wider text-foreground">{displayName}</h1>
         </div>
 
         {/* Top Stats Row */}
-        <div className="grid grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
           {/* Earnings Card — wide */}
-          <div className="col-span-2 bg-card border border-border rounded-lg p-6">
+          <div className="md:col-span-2 bg-card border border-border rounded-lg p-4 md:p-6">
             <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-2">CUMULATIVE EARNINGS</p>
             <div className="flex items-baseline gap-3 mb-4">
               <p className="font-mono text-5xl text-signal font-bold">${totalEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
@@ -114,7 +108,7 @@ export default function CreatorDashboard() {
               <p className="text-sm text-muted-foreground">Check back soon — brands will post gigs here.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {openCampaigns.filter(c => c.status === "active").slice(0, 3).map((gig) => (
                 <div key={gig.id} className="bg-card border border-border rounded-lg overflow-hidden hover:border-primary/30 transition-colors">
                   <div className="relative h-32 bg-muted flex items-center justify-center">
