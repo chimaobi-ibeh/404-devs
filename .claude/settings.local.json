@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(pnpm check:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(npm --version)",
+      "Bash(npm install:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm db:push)",
+      "Bash(env)",
+      "Bash(DATABASE_URL='mysql://2p6j3BQsJaJepD8.afb36c539aeb:XfQF93Gvd3QhvMd50Z4u@gateway04.us-east-1.prod.aws.tidbcloud.com:4000/eeuiwzaR9QfanoQAViE7rS?ssl={\"\"rejectUnauthorized\"\":true}' pnpm db:push)",
+      "Bash(node -e \":*)",
+      "Bash(node scripts/migrate-notifications.mjs)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm remove:*)",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(\"c:/Users/user/Downloads/vyral-platform/client/src/lib/supabase.ts\")",
+      "Bash(\"c:/Users/user/Downloads/vyral-platform/client/src/components/VyralLogo.tsx\")"
+    ]
+  }
+}
