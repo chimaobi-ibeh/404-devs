@@ -79,7 +79,7 @@ function Nav({
           <img
             src={isDark ? "/logo.png" : "/logo-light.png"}
             alt="Vyral"
-            className="h-8 w-auto"
+            className="h-10 w-auto"
           />
         </a>
 
@@ -371,7 +371,7 @@ export default function Home() {
       {/* ── Footer ───────────────────────────────────────────────────────── */}
       <footer className="border-t border-border py-10">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-6 w-auto" />
+          <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-8 w-auto" />
           <div className="flex gap-8 text-xs tracking-widest uppercase text-muted-foreground">
             <a href="#" className="hover:text-foreground transition-colors">Terms</a>
             <a href="#" className="hover:text-foreground transition-colors">Privacy</a>

@@ -77,6 +77,7 @@ export const creatorProfiles = pgTable("creator_profiles", {
   contentLanguages: jsonb("contentLanguages"),
   vyralScore: numeric("vyralScore", { precision: 5, scale: 2 }).notNull().default("0"),
   verificationStatus: varchar("verificationStatus", { length: 20 }).notNull().default("pending"),
+  verificationRejectionReason: text("verificationRejectionReason"),
   stripeConnectId: varchar("stripeConnectId", { length: 255 }),
   isPro: boolean("isPro").notNull().default(false),
   proExpiresAt: timestamp("proExpiresAt"),

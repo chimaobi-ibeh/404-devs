@@ -78,7 +78,7 @@ export default function OnboardingPage() {
         <img
           src={isDark ? "/logo.png" : "/logo-light.png"}
           alt="Vyral"
-          className="h-7 w-auto"
+          className="h-9 w-auto"
         />
         <div className="flex items-center gap-4">
           {step === 2 && (

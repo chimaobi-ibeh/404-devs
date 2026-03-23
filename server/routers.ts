@@ -12,6 +12,8 @@ import {
   notifyContentApproved,
   notifyRevisionRequested,
   notifyDraftSubmitted,
+  notifyVerificationApproved,
+  notifyVerificationRejected,
 } from "./notifications";
 
 // ============================================================================
@@ -767,15 +769,32 @@ const messagingRouter = router({
     }),
 
   startConversation: protectedProcedure
-    .input(z.object({ campaignId: z.number(), otherUserId: z.number() }))
+    .input(z.object({ campaignId: z.number(), creatorProfileId: z.number().optional() }))
     .mutation(async ({ ctx, input }) => {
       const campaign = await db.getCampaign(input.campaignId);
       if (!campaign) throw new TRPCError({ code: "NOT_FOUND" });
-      // Determine who is advertiser and who is creator
-      const isAdvertiser = campaign.advertiserId === ctx.user.id;
-      const advertiserId = isAdvertiser ? ctx.user.id : input.otherUserId;
-      const creatorId = isAdvertiser ? input.otherUserId : ctx.user.id;
-      return db.getOrCreateConversation(input.campaignId, advertiserId, creatorId);
+      let advertiserId: number;
+      let creatorUserId: number;
+      if (ctx.user.id === campaign.advertiserId) {
+        // Advertiser initiating — resolve creator's users.id from their profile
+        if (!input.creatorProfileId) throw new TRPCError({ code: "BAD_REQUEST", message: "creatorProfileId required" });
+        const creatorProfile = await db.getCreatorProfileById(input.creatorProfileId);
+        if (!creatorProfile) throw new TRPCError({ code: "NOT_FOUND" });
+        advertiserId = ctx.user.id;
+        creatorUserId = creatorProfile.userId;
+      } else {
+        // Creator initiating — advertiser comes from the campaign
+        creatorUserId = ctx.user.id;
+        advertiserId = campaign.advertiserId;
+      }
+      return db.getOrCreateConversation(input.campaignId, advertiserId, creatorUserId);
+    }),
+
+  markConversationRead: protectedProcedure
+    .input(z.object({ conversationId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await db.markConversationRead(input.conversationId, ctx.user.id);
+      return { success: true };
     }),
 
   getUnreadCount: protectedProcedure.query(async ({ ctx }) => {
@@ -824,11 +843,20 @@ const adminRouter = router({
 
   // FIX #4: real DB update
   verifyCreator: protectedProcedure
-    .input(z.object({ creatorId: z.number(), verified: z.boolean() }))
+    .input(z.object({ creatorId: z.number(), verified: z.boolean(), rejectionReason: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
       const status = input.verified ? "verified" : "rejected";
-      await db.updateCreatorVerificationStatus(input.creatorId, status);
+      await db.updateCreatorVerificationStatus(input.creatorId, status, input.rejectionReason);
+      // Notify the creator
+      const creator = await db.getCreatorProfileById(input.creatorId);
+      if (creator?.userId) {
+        if (input.verified) {
+          await notifyVerificationApproved(creator.userId);
+        } else {
+          await notifyVerificationRejected(creator.userId, input.rejectionReason);
+        }
+      }
       return { success: true };
     }),
 

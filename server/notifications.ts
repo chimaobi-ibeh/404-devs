@@ -16,7 +16,9 @@ export type NotificationType =
   | "payout_released"
   | "campaign_invitation"
   | "no_show_warning"
-  | "draft_submitted";
+  | "draft_submitted"
+  | "verification_approved"
+  | "verification_rejected";
 
 interface SendNotificationOptions {
   userId: number;
@@ -185,5 +187,25 @@ export async function notifyNoShow(
     message: `Creator #${creatorId} missed their campaign deadline. Their slot will be refunded from escrow within 48 hours.`,
     relatedEntityType: "campaign",
     relatedEntityId: campaignId,
+  });
+}
+
+export async function notifyVerificationApproved(creatorUserId: number): Promise<void> {
+  await sendNotification({
+    userId: creatorUserId,
+    type: "verification_approved",
+    title: "You're verified! ✓",
+    message: "Congratulations! Your Vyral account has been verified. You can now apply to campaigns.",
+  });
+}
+
+export async function notifyVerificationRejected(creatorUserId: number, reason?: string): Promise<void> {
+  await sendNotification({
+    userId: creatorUserId,
+    type: "verification_rejected",
+    title: "Verification not approved",
+    message: reason
+      ? `Your verification request was not approved. Reason: ${reason}. You may reapply after addressing the feedback.`
+      : "Your verification request was not approved. You may reapply after reviewing our creator guidelines.",
   });
 }

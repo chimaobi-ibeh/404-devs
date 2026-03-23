@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
-import { Eye, Flag, Filter } from "lucide-react";
+import { Eye, Flag, Filter, MessageSquare } from "lucide-react";
 
 type TabKey = "ROSTER" | "CONTENT" | "ANALYTICS" | "PAYOUTS";
 
@@ -34,6 +34,10 @@ export default function CampaignDetail() {
 
   const launchCampaign = trpc.advertiser.launchCampaign.useMutation({
     onSuccess: () => { refetchCampaign(); },
+  });
+
+  const startConversation = trpc.messaging.startConversation.useMutation({
+    onSuccess: () => setLocation("/messages"),
   });
 
   const tabs: TabKey[] = ["ROSTER", "CONTENT", "ANALYTICS", "PAYOUTS"];
@@ -176,6 +180,14 @@ export default function CampaignDetail() {
                         <div className="flex items-center gap-3">
                           <button className="text-muted-foreground hover:text-foreground transition-colors">
                             <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => startConversation.mutate({ campaignId, creatorProfileId: entry.creatorId })}
+                            disabled={startConversation.isPending}
+                            title="Message creator"
+                            className="text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
                           </button>
                           <button className="text-muted-foreground hover:text-primary transition-colors">
                             <Flag className="w-3.5 h-3.5" />

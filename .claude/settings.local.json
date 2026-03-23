@@ -19,7 +19,10 @@
       "Bash(\"c:/Users/user/Downloads/vyral-platform/client/src/components/VyralLogo.tsx\")",
       "Bash(del \"c:\\\\Users\\\\user\\\\Downloads\\\\vyral-platform\\\\server\\\\_core\\\\types\\\\manusTypes.ts\")",
       "Bash(npm run:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(xargs grep:*)",
+      "Bash(find /c/Users/user/Downloads/vyral-platform/server -type f -name *.ts)"
     ]
   }
 }

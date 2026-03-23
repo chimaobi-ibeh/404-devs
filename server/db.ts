@@ -668,10 +668,12 @@ export async function getDisputesList(limit = 50, offset = 0) {
   return db.select().from(disputes).orderBy(desc(disputes.createdAt)).limit(limit).offset(offset);
 }
 
-export async function updateCreatorVerificationStatus(creatorId: number, status: string) {
+export async function updateCreatorVerificationStatus(creatorId: number, status: string, rejectionReason?: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(creatorProfiles).set({ verificationStatus: status }).where(eq(creatorProfiles.id, creatorId));
+  await db.update(creatorProfiles)
+    .set({ verificationStatus: status, ...(rejectionReason !== undefined ? { verificationRejectionReason: rejectionReason } : {}) })
+    .where(eq(creatorProfiles.id, creatorId));
 }
 
 // ============================================================================
@@ -815,9 +817,40 @@ export async function getOrCreateConversation(campaignId: number, advertiserId: 
 export async function getConversationsByUser(userId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(conversations)
+
+  const convs = await db.select().from(conversations)
     .where(or(eq(conversations.advertiserId, userId), eq(conversations.creatorId, userId)))
     .orderBy(desc(conversations.lastMessageAt));
+
+  if (convs.length === 0) return [];
+
+  const campaignIds = [...new Set(convs.map((c) => c.campaignId))];
+  const advertiserUserIds = [...new Set(convs.map((c) => c.advertiserId))];
+  const creatorUserIds = [...new Set(convs.map((c) => c.creatorId))];
+  const convIds = convs.map((c) => c.id);
+
+  const [camps, advProfiles, crProfiles, unreadRows] = await Promise.all([
+    db.select({ id: campaigns.id, title: campaigns.title }).from(campaigns).where(inArray(campaigns.id, campaignIds)),
+    db.select({ userId: advertiserProfiles.userId, companyName: advertiserProfiles.companyName }).from(advertiserProfiles).where(inArray(advertiserProfiles.userId, advertiserUserIds)),
+    db.select({ userId: creatorProfiles.userId, displayName: creatorProfiles.displayName }).from(creatorProfiles).where(inArray(creatorProfiles.userId, creatorUserIds)),
+    db.select({ conversationId: messages.conversationId, count: sql<number>`count(*)` })
+      .from(messages)
+      .where(and(inArray(messages.conversationId, convIds), eq(messages.isRead, false), not(eq(messages.senderId, userId))))
+      .groupBy(messages.conversationId),
+  ]);
+
+  const campMap = Object.fromEntries(camps.map((c) => [c.id, c.title]));
+  const advMap = Object.fromEntries(advProfiles.map((a) => [a.userId, a.companyName]));
+  const crMap = Object.fromEntries(crProfiles.map((c) => [c.userId, c.displayName]));
+  const unreadMap = Object.fromEntries(unreadRows.map((r) => [r.conversationId, Number(r.count)]));
+
+  return convs.map((conv) => ({
+    ...conv,
+    campaignTitle: campMap[conv.campaignId] ?? `Campaign #${conv.campaignId}`,
+    advertiserName: advMap[conv.advertiserId] ?? `Brand #${conv.advertiserId}`,
+    creatorName: crMap[conv.creatorId] ?? `Creator #${conv.creatorId}`,
+    unreadCount: unreadMap[conv.id] ?? 0,
+  }));
 }
 
 export async function getConversation(id: number) {
@@ -874,10 +907,17 @@ export async function getUnreadMessageCount(userId: number) {
 export async function getPendingCreators(limit = 50) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(creatorProfiles)
+  const creators = await db.select().from(creatorProfiles)
     .where(eq(creatorProfiles.verificationStatus, "pending"))
-    .orderBy(creatorProfiles.createdAt)
+    .orderBy(desc(creatorProfiles.createdAt))
     .limit(limit);
+  if (creators.length === 0) return [];
+  const ids = creators.map((c) => c.id);
+  const socials = await db.select().from(socialMediaAccounts).where(inArray(socialMediaAccounts.creatorId, ids));
+  return creators.map((c) => ({
+    ...c,
+    socialAccounts: socials.filter((s) => s.creatorId === c.id),
+  }));
 }
 
 export async function resolveDispute(disputeId: number, resolution: string, status: string, resolvedBy: number) {

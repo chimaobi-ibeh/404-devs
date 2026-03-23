@@ -172,10 +172,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* Sidebar - Hidden on mobile, visible on tablet+ */}
       <aside className="fixed left-0 top-0 h-full w-52 bg-card border-r border-border flex flex-col z-40 hidden md:flex">
         <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2">
+          <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-8 w-auto mb-2" />
+          <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse" />
-            <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">
-              {role.toUpperCase()} CONSOLE
+            <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase">
+              {role} console
             </p>
           </div>
         </div>
@@ -220,7 +221,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       {/* Top bar - Responsive positioning */}
       <header className="fixed top-0 left-0 right-0 h-14 bg-card border-b border-border flex items-center px-4 md:px-6 z-40 md:left-52">
-        <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-6 md:h-7 w-auto" />
+        <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-8 w-auto md:hidden" />
 
         <div className="flex-1" />
 
@@ -241,7 +242,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <div className="hidden sm:flex items-center gap-2 pl-2 md:pl-3 border-l border-border">
             <div className="text-right hidden sm:block">
               <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">{role}</p>
-              <p className="font-mono text-[10px] text-foreground truncate max-w-[100px] md:max-w-[140px]">{user?.email ?? user?.name ?? "—"}</p>
+              <p className="font-mono text-[10px] text-foreground truncate max-w-[100px] md:max-w-[140px]">{user?.name ?? user?.email ?? "—"}</p>
             </div>
             <button
               onClick={() => setLocation("/profile")}

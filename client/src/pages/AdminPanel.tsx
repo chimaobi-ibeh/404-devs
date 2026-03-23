@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
-import { AlertTriangle, Activity, Clock } from "lucide-react";
+import { AlertTriangle, Activity, Clock, ChevronDown, ChevronUp } from "lucide-react";
 
 type TabKey = "SYSTEM HEALTH" | "DISPUTES" | "VERIFICATIONS";
 
@@ -12,6 +12,8 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<TabKey>("SYSTEM HEALTH");
   const [selectedDisputeId, setSelectedDisputeId] = useState<number | null>(null);
   const [resolutionText, setResolutionText] = useState("");
+  const [expandedCreatorId, setExpandedCreatorId] = useState<number | null>(null);
+  const [rejectionReasons, setRejectionReasons] = useState<Record<number, string>>({});
 
   const tabs: TabKey[] = ["SYSTEM HEALTH", "DISPUTES", "VERIFICATIONS"];
 
@@ -218,35 +220,90 @@ export default function AdminPanel() {
               <div className="bg-card border border-border rounded-lg overflow-hidden">
                 <div className="px-5 py-4 border-b border-border">
                   <h2 className="font-mono text-xs text-foreground tracking-widest font-bold">IDENTITY VERIFICATION</h2>
+                  <p className="font-mono text-[8px] text-muted-foreground mt-1">All creators require manual review. Rejected creators may reapply.</p>
                 </div>
                 {pendingCreators && pendingCreators.length > 0 ? (
                   <div className="divide-y divide-border">
-                    {pendingCreators.map((creator: any) => (
-                      <div key={creator.id} className="flex items-center justify-between px-5 py-4">
-                        <div>
-                          <p className="font-mono text-xs text-foreground font-bold">{creator.displayName}</p>
-                          <p className="font-mono text-[9px] text-muted-foreground">
-                            {creator.niche} · {creator.tier} · {creator.totalFollowers.toLocaleString()} followers
-                          </p>
+                    {pendingCreators.map((creator: any) => {
+                      const isExpanded = expandedCreatorId === creator.id;
+                      const rejectReason = rejectionReasons[creator.id] ?? "";
+                      const socials: any[] = creator.socialAccounts ?? [];
+                      return (
+                        <div key={creator.id} className="px-5 py-4">
+                          {/* Row header */}
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-mono text-xs text-foreground font-bold">{creator.displayName}</p>
+                                <span className="font-mono text-[7px] border border-border rounded px-1.5 py-0.5 text-muted-foreground tracking-widest uppercase">{creator.tier}</span>
+                              </div>
+                              <p className="font-mono text-[9px] text-muted-foreground mt-0.5">
+                                {creator.niche} · {(creator.totalFollowers ?? 0).toLocaleString()} followers
+                              </p>
+                              {socials.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-1.5">
+                                  {socials.map((s: any) => (
+                                    <span key={s.id} className="font-mono text-[7px] text-muted-foreground border border-border rounded px-1.5 py-0.5 tracking-widest uppercase">
+                                      {s.platform} @{s.username} · {(s.followers ?? 0).toLocaleString()}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {socials.length === 0 && (
+                                <span className="font-mono text-[7px] text-gold border border-gold/30 rounded px-1.5 py-0.5 tracking-widest mt-1.5 inline-block">NO SOCIALS CONNECTED</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => verifyCreator.mutate({ creatorId: creator.id, verified: true }, { onSuccess: () => setExpandedCreatorId(null) })}
+                                disabled={verifyCreator.isPending}
+                                className="font-mono text-[8px] text-signal border border-signal/40 rounded px-2 py-1 hover:bg-signal/10 transition-colors tracking-widest disabled:opacity-40"
+                              >
+                                APPROVE
+                              </button>
+                              <button
+                                onClick={() => setExpandedCreatorId(isExpanded ? null : creator.id)}
+                                className="font-mono text-[8px] text-primary border border-primary/40 rounded px-2 py-1 hover:bg-primary/10 transition-colors tracking-widest flex items-center gap-1"
+                              >
+                                REJECT {isExpanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Reject panel */}
+                          {isExpanded && (
+                            <div className="mt-3 p-3 bg-muted/20 rounded border border-border space-y-3">
+                              <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase">Rejection Reason (optional — sent to creator)</p>
+                              <textarea
+                                value={rejectReason}
+                                onChange={(e) => setRejectionReasons((prev) => ({ ...prev, [creator.id]: e.target.value }))}
+                                placeholder="e.g. Unable to verify account authenticity. Please ensure your social profiles are public and active."
+                                rows={3}
+                                className="w-full bg-background border border-border rounded px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50 resize-none"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => verifyCreator.mutate(
+                                    { creatorId: creator.id, verified: false, rejectionReason: rejectReason || undefined },
+                                    { onSuccess: () => { setExpandedCreatorId(null); setRejectionReasons((p) => { const n = { ...p }; delete n[creator.id]; return n; }); } }
+                                  )}
+                                  disabled={verifyCreator.isPending}
+                                  className="font-mono text-[8px] text-primary border border-primary/40 rounded px-3 py-1.5 hover:bg-primary/10 transition-colors tracking-widest disabled:opacity-40"
+                                >
+                                  CONFIRM REJECT
+                                </button>
+                                <button
+                                  onClick={() => setExpandedCreatorId(null)}
+                                  className="font-mono text-[8px] text-muted-foreground border border-border rounded px-3 py-1.5 hover:text-foreground transition-colors tracking-widest"
+                                >
+                                  CANCEL
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => verifyCreator.mutate({ creatorId: creator.id, verified: true })}
-                            disabled={verifyCreator.isPending}
-                            className="font-mono text-[8px] text-signal border border-signal/40 rounded px-2 py-1 hover:bg-signal/10 transition-colors tracking-widest disabled:opacity-40"
-                          >
-                            APPROVE
-                          </button>
-                          <button
-                            onClick={() => verifyCreator.mutate({ creatorId: creator.id, verified: false })}
-                            disabled={verifyCreator.isPending}
-                            className="font-mono text-[8px] text-primary border border-primary/40 rounded px-2 py-1 hover:bg-primary/10 transition-colors tracking-widest disabled:opacity-40"
-                          >
-                            REJECT
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="px-5 py-8 text-center">

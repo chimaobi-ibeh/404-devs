@@ -64,7 +64,7 @@ export default function AuthPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-5">
         <a href="/" className="flex items-center">
-          <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-7 w-auto" />
+          <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-9 w-auto" />
         </a>
         <a
           href="/"

@@ -2,7 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
-import { ArrowRight, Lock } from "lucide-react";
+import { ArrowRight, Lock, MessageSquare } from "lucide-react";
 
 const statusColors: Record<string, string> = {
   active:  "text-signal",
@@ -30,7 +30,11 @@ export default function CreatorDashboard() {
   const pendingEarnings = earnings?.pendingEarnings ?? 0;
   const availableEarnings = Math.max(0, totalEarnings - pendingEarnings);
   const vyralScore = Number(profile?.vyralScore ?? 0);
-  const displayName = profile?.displayName ?? user?.name ?? user?.email ?? "Creator";
+  const displayName = profile?.displayName ?? user?.name ?? "Creator";
+
+  const startConversation = trpc.messaging.startConversation.useMutation({
+    onSuccess: () => setLocation("/messages"),
+  });
 
   return (
     <AppLayout>
@@ -38,7 +42,24 @@ export default function CreatorDashboard() {
         {/* Header */}
         <div className="mb-4 md:mb-8">
           <p className="font-mono text-xs text-muted-foreground tracking-widest uppercase mb-1">Welcome</p>
-          <h1 className="font-display text-4xl md:text-5xl tracking-wider text-foreground">{displayName}</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="font-display text-4xl md:text-5xl tracking-wider text-foreground">{displayName}</h1>
+            {profile?.verificationStatus === "verified" && (
+              <span className="font-mono text-[8px] rounded px-2 py-1 tracking-widest bg-signal/20 text-signal border border-signal/40">
+                VERIFIED ✓
+              </span>
+            )}
+            {profile?.verificationStatus === "pending" && (
+              <span className="font-mono text-[8px] rounded px-2 py-1 tracking-widest bg-gold/20 text-gold border border-gold/40">
+                PENDING REVIEW
+              </span>
+            )}
+            {profile?.verificationStatus === "rejected" && (
+              <span className="font-mono text-[8px] rounded px-2 py-1 tracking-widest bg-primary/10 text-primary border border-primary/40">
+                NOT VERIFIED — REAPPLY
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Top Stats Row */}
@@ -158,14 +179,14 @@ export default function CreatorDashboard() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-4 px-5 py-2 border-b border-border bg-muted/20">
-                {["CAMPAIGN", "STATUS", "DEADLINE", "ACTION"].map((h) => (
+              <div className="grid grid-cols-5 px-5 py-2 border-b border-border bg-muted/20">
+                {["CAMPAIGN", "STATUS", "DEADLINE", "MSG", "ACTION"].map((h) => (
                   <p key={h} className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase">{h}</p>
                 ))}
               </div>
               <div className="divide-y divide-border">
                 {myRoster.map((entry: any) => (
-                  <div key={entry.id} className="grid grid-cols-4 items-center px-5 py-3.5">
+                  <div key={entry.id} className="grid grid-cols-5 items-center px-5 py-3.5">
                     <p className="font-mono text-xs text-foreground font-bold uppercase truncate">{entry.campaign?.title ?? "—"}</p>
                     <div className="flex items-center gap-2">
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDots[entry.status] ?? "bg-muted-foreground"}`} />
@@ -174,6 +195,14 @@ export default function CreatorDashboard() {
                     <p className="font-mono text-xs text-muted-foreground">
                       {entry.campaign?.deadline ? new Date(entry.campaign.deadline).toLocaleDateString() : "—"}
                     </p>
+                    <button
+                      onClick={() => startConversation.mutate({ campaignId: entry.campaignId })}
+                      disabled={startConversation.isPending}
+                      title="Message brand"
+                      className="text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    </button>
                     <button className="font-mono text-[9px] text-primary tracking-widest hover:underline text-left">VIEW →</button>
                   </div>
                 ))}
