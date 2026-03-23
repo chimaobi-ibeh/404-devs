@@ -5,14 +5,16 @@ import { CheckCircle } from "lucide-react";
 
 export default function BrandProfilePage() {
   const [, params] = useRoute("/brand/profile/:id");
-  const brandId = params?.id ? parseInt(params.id) : 0;
+  const brandUserId = params?.id ? parseInt(params.id) : 0;
 
-  const { data: advertiserProfile } = trpc.advertiser.getProfile.useQuery();
-  const { data: campaigns = [] } = trpc.advertiser.getCampaigns.useQuery({ limit: 10 });
-
-  const activeCampaigns = (campaigns as any[]).filter((c: any) => c.status === "active");
-
-  const profile = advertiserProfile as any;
+  const { data: profile } = trpc.advertiser.getPublicProfile.useQuery(
+    { userId: brandUserId },
+    { enabled: !!brandUserId }
+  );
+  const { data: activeCampaigns = [] } = trpc.advertiser.getPublicCampaigns.useQuery(
+    { userId: brandUserId },
+    { enabled: !!brandUserId }
+  );
 
   return (
     <AppLayout>
@@ -29,9 +31,9 @@ export default function BrandProfilePage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="font-display text-3xl tracking-wider text-foreground">
-                  {profile?.companyName ?? `BRAND #${brandId}`}
+                  {profile?.companyName ?? `BRAND #${brandUserId}`}
                 </h1>
-                {profile?.verified && (
+                {profile?.verificationStatus === "verified" && (
                   <CheckCircle className="w-5 h-5 text-signal shrink-0" />
                 )}
               </div>

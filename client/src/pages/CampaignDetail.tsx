@@ -31,6 +31,7 @@ export default function CampaignDetail() {
   const { data: campaign, isLoading, refetch: refetchCampaign } = trpc.advertiser.getCampaign.useQuery({ id: campaignId });
   const { data: roster } = trpc.advertiser.getCampaignRoster.useQuery({ campaignId }, { enabled: !!campaignId });
   const { data: analytics } = trpc.advertiser.getCampaignAnalytics.useQuery({ campaignId }, { enabled: !!campaignId });
+  const { data: contentSubmissions = [] } = trpc.advertiser.getContentSubmissions.useQuery({ campaignId }, { enabled: !!campaignId && activeTab === "CONTENT" });
 
   const launchCampaign = trpc.advertiser.launchCampaign.useMutation({
     onSuccess: () => { refetchCampaign(); },
@@ -80,7 +81,10 @@ export default function CampaignDetail() {
             <h1 className="font-display text-5xl tracking-wider text-foreground">{campaignSlug}</h1>
           </div>
           <div className="flex items-center gap-3">
-            <button className="px-4 py-2 border border-border font-mono text-xs tracking-widest text-muted-foreground hover:border-foreground hover:text-foreground transition-colors rounded">
+            <button
+              onClick={() => setLocation(`/brand/campaigns/${campaignId}/edit`)}
+              className="px-4 py-2 border border-border font-mono text-xs tracking-widest text-muted-foreground hover:border-foreground hover:text-foreground transition-colors rounded"
+            >
               EDIT CAMPAIGN
             </button>
             {campaign.status === "draft" && (
@@ -178,7 +182,11 @@ export default function CampaignDetail() {
 
                         {/* Actions */}
                         <div className="flex items-center gap-3">
-                          <button className="text-muted-foreground hover:text-foreground transition-colors">
+                          <button
+                            onClick={() => setLocation(`/creator/profile/${entry.creatorId}`)}
+                            title="View creator profile"
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                          >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                           <button
@@ -189,7 +197,10 @@ export default function CampaignDetail() {
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                           </button>
-                          <button className="text-muted-foreground hover:text-primary transition-colors">
+                          <button
+                            title="Report creator"
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                          >
                             <Flag className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -205,9 +216,48 @@ export default function CampaignDetail() {
             )}
 
             {activeTab === "CONTENT" && (
-              <div className="bg-card border border-border rounded-lg p-6">
-                <h2 className="font-mono text-xs text-foreground tracking-widest font-bold mb-4">CONTENT SUBMISSIONS</h2>
-                <p className="font-mono text-xs text-muted-foreground">No content submissions yet.</p>
+              <div className="bg-card border border-border rounded-lg overflow-hidden">
+                <div className="px-5 py-4 border-b border-border">
+                  <h2 className="font-mono text-xs text-foreground tracking-widest font-bold">
+                    CONTENT_SUBMISSIONS <span className="text-muted-foreground">[{contentSubmissions.length}]</span>
+                  </h2>
+                </div>
+                {contentSubmissions.length === 0 ? (
+                  <div className="px-5 py-8 text-center">
+                    <p className="font-mono text-xs text-muted-foreground">No content submissions yet.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {contentSubmissions.map((sub: any) => (
+                      <div key={sub.id} className="px-5 py-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-mono text-xs font-bold text-foreground">Creator #{sub.creatorId}</span>
+                              <span className={`font-mono text-[8px] border rounded px-1.5 py-0.5 tracking-widest uppercase ${
+                                sub.draftStatus === "approved" ? "text-signal border-signal/40" :
+                                sub.draftStatus === "revision_requested" ? "text-gold border-gold/40" :
+                                "text-muted-foreground border-border"
+                              }`}>{sub.draftStatus?.replace("_", " ") ?? "PENDING"}</span>
+                            </div>
+                            {sub.contentUrl && (
+                              <a href={sub.contentUrl} target="_blank" rel="noopener noreferrer"
+                                className="font-mono text-[9px] text-primary hover:underline break-all">
+                                {sub.contentUrl}
+                              </a>
+                            )}
+                            {sub.notes && (
+                              <p className="font-mono text-[9px] text-muted-foreground mt-1">{sub.notes}</p>
+                            )}
+                          </div>
+                          <p className="font-mono text-[8px] text-muted-foreground shrink-0">
+                            {new Date(sub.submittedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

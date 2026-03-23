@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
-import { AlertTriangle, Activity, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, Activity, Clock, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 
 type TabKey = "SYSTEM HEALTH" | "DISPUTES" | "VERIFICATIONS";
 
 export default function AdminPanel() {
+  const [, setLocation] = useLocation();
   const { data: analytics } = trpc.admin.getDashboard.useQuery();
   const { data: disputes, refetch: refetchDisputes } = trpc.admin.getDisputes.useQuery({ limit: 50, offset: 0 });
   const { data: pendingCreators, refetch: refetchPending } = trpc.admin.getPendingCreators.useQuery();
@@ -254,6 +256,13 @@ export default function AdminPanel() {
                               )}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => setLocation(`/creator/profile/${creator.id}`)}
+                                title="View full profile"
+                                className="font-mono text-[8px] text-muted-foreground border border-border rounded px-2 py-1 hover:text-foreground hover:border-foreground transition-colors tracking-widest flex items-center gap-1"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" /> VIEW
+                              </button>
                               <button
                                 onClick={() => verifyCreator.mutate({ creatorId: creator.id, verified: true }, { onSuccess: () => setExpandedCreatorId(null) })}
                                 disabled={verifyCreator.isPending}

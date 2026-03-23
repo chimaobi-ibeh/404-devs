@@ -82,7 +82,7 @@ export default function BrandDashboard() {
             <div className="bg-card border border-border rounded-lg p-6">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="font-mono text-xs text-foreground tracking-widest uppercase font-bold">ACTIVE CAMPAIGNS</h2>
-                <button className="font-mono text-[9px] text-primary tracking-widest hover:underline">VIEW ALL RECORDS →</button>
+                <button onClick={() => setLocation("/brand/dashboard")} className="font-mono text-[9px] text-primary tracking-widest hover:underline">VIEW ALL RECORDS →</button>
               </div>
 
               {isLoading ? (
@@ -196,29 +196,14 @@ export default function BrandDashboard() {
                   ))}
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {/* Placeholder draft cards */}
-                  {["SUMMER_LAUNCH_V2", "TECH_COLLAB_Q4"].map((title, i) => (
-                    <div key={i} className="p-3 rounded border border-border">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-mono text-[8px] text-muted-foreground border border-border rounded px-1.5 py-0.5 tracking-widest">
-                          DRAFT
-                        </span>
-                      </div>
-                      <p className="font-mono text-xs text-foreground font-bold mb-1">{title}</p>
-                      <p className="font-mono text-[9px] text-muted-foreground mb-3">
-                        Awaiting final configuration and launch approval.
-                      </p>
-                      <div className="flex gap-2">
-                        <button className="flex-1 py-1 border border-border font-mono text-[8px] tracking-widest text-muted-foreground hover:border-foreground hover:text-foreground transition-colors rounded">
-                          REVIEW
-                        </button>
-                        <button className="flex-1 py-1 border border-primary/40 font-mono text-[8px] tracking-widest text-primary hover:bg-primary/10 transition-colors rounded">
-                          EDIT
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                <div className="py-6 text-center">
+                  <p className="font-mono text-xs text-muted-foreground">NO DRAFTS</p>
+                  <button
+                    onClick={() => setLocation("/brand/campaigns/new")}
+                    className="mt-2 font-mono text-[9px] text-primary tracking-widest hover:underline"
+                  >
+                    CREATE CAMPAIGN →
+                  </button>
                 </div>
               )}
             </div>

@@ -2,7 +2,8 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
-import { ArrowRight, Lock, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
+import { ArrowRight, Lock, MessageSquare, AlertCircle } from "lucide-react";
 
 const statusColors: Record<string, string> = {
   active:  "text-signal",
@@ -23,7 +24,7 @@ export default function CreatorDashboard() {
   const [, setLocation] = useLocation();
   const { data: profile } = trpc.creator.getProfile.useQuery();
   const { data: earnings } = trpc.creator.getEarnings.useQuery();
-  const { data: openCampaigns } = trpc.advertiser.getCampaigns.useQuery({ limit: 6 });
+  const { data: openCampaigns } = trpc.creator.getAvailableCampaigns.useQuery({ limit: 6 });
   const { data: myRoster } = trpc.creator.getMyRosterEntries.useQuery();
 
   const totalEarnings = earnings?.totalEarnings ?? 0;
@@ -35,6 +36,24 @@ export default function CreatorDashboard() {
   const startConversation = trpc.messaging.startConversation.useMutation({
     onSuccess: () => setLocation("/messages"),
   });
+
+  const applyToCampaign = trpc.creator.applyCampaign.useMutation({
+    onSuccess: () => toast.success("Application submitted!"),
+    onError: (err) => toast.error(err.message),
+  });
+
+  const submitForVerification = trpc.creator.submitForVerification.useMutation({
+    onSuccess: () => toast.success("Submitted for verification. We'll review your profile shortly."),
+    onError: (err) => toast.error(err.message),
+  });
+
+  function handleApply(campaignId: number) {
+    if (profile?.verificationStatus !== "verified") {
+      toast.error("You must be verified to apply to campaigns.");
+      return;
+    }
+    applyToCampaign.mutate({ campaignId });
+  }
 
   return (
     <AppLayout>
@@ -111,12 +130,62 @@ export default function CreatorDashboard() {
           </div>
         </div>
 
+        {/* Verification Banner */}
+        {profile && profile.verificationStatus !== "verified" && (
+          <div className={`mb-6 rounded-lg border p-4 flex items-start gap-3 ${
+            profile.verificationStatus === "pending"
+              ? "bg-gold/5 border-gold/30"
+              : profile.verificationStatus === "rejected"
+              ? "bg-destructive/5 border-destructive/30"
+              : "bg-primary/5 border-primary/30"
+          }`}>
+            <AlertCircle className={`w-4 h-4 mt-0.5 shrink-0 ${
+              profile.verificationStatus === "pending" ? "text-gold" :
+              profile.verificationStatus === "rejected" ? "text-destructive" : "text-primary"
+            }`} />
+            <div className="flex-1 min-w-0">
+              {profile.verificationStatus === "pending" ? (
+                <>
+                  <p className="font-mono text-xs font-bold tracking-widest text-gold mb-0.5">VERIFICATION PENDING</p>
+                  <p className="font-mono text-[9px] text-muted-foreground">Your profile is under review. You'll be notified once approved.</p>
+                </>
+              ) : profile.verificationStatus === "rejected" ? (
+                <>
+                  <p className="font-mono text-xs font-bold tracking-widest text-destructive mb-0.5">VERIFICATION REJECTED</p>
+                  <p className="font-mono text-[9px] text-muted-foreground mb-2">
+                    {(profile as any).verificationRejectionReason ?? "Your verification was not approved. Please update your profile and reapply."}
+                  </p>
+                  <button
+                    onClick={() => submitForVerification.mutate()}
+                    disabled={submitForVerification.isPending}
+                    className="font-mono text-[9px] text-primary border border-primary/40 rounded px-2 py-1 hover:bg-primary/10 transition-colors disabled:opacity-50"
+                  >
+                    {submitForVerification.isPending ? "SUBMITTING…" : "REAPPLY FOR VERIFICATION"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="font-mono text-xs font-bold tracking-widest text-primary mb-0.5">GET VERIFIED</p>
+                  <p className="font-mono text-[9px] text-muted-foreground mb-2">Verify your account to apply to campaigns and unlock full platform access.</p>
+                  <button
+                    onClick={() => submitForVerification.mutate()}
+                    disabled={submitForVerification.isPending}
+                    className="font-mono text-[9px] text-primary border border-primary/40 rounded px-2 py-1 hover:bg-primary/10 transition-colors disabled:opacity-50"
+                  >
+                    {submitForVerification.isPending ? "SUBMITTING…" : "SUBMIT FOR VERIFICATION"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Open Campaigns / Gigs */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-mono text-xs text-foreground tracking-widest font-bold uppercase">OPEN CAMPAIGNS</h2>
             <button
-              onClick={() => setLocation("/creator/directory")}
+              onClick={() => setLocation("/creator/marketplace")}
               className="flex items-center gap-1.5 font-mono text-[9px] text-primary tracking-widest hover:underline"
             >
               VIEW ALL <ArrowRight className="w-3 h-3" />
@@ -130,9 +199,12 @@ export default function CreatorDashboard() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {openCampaigns.filter(c => c.status === "active").slice(0, 3).map((gig) => (
-                <div key={gig.id} className="bg-card border border-border rounded-lg overflow-hidden hover:border-primary/30 transition-colors">
-                  <div className="relative h-32 bg-muted flex items-center justify-center">
+              {openCampaigns.slice(0, 3).map((gig) => (
+                <div key={gig.id} className="bg-card border border-border rounded-lg overflow-hidden hover:border-primary/30 transition-colors flex flex-col">
+                  <button
+                    onClick={() => setLocation(`/creator/campaigns/${gig.id}`)}
+                    className="relative h-32 bg-muted flex items-center justify-center w-full text-left"
+                  >
                     <span className="font-mono text-[9px] text-muted-foreground">CAMPAIGN VISUAL</span>
                     <div className="absolute top-2 right-2">
                       <span className="font-mono text-[7px] border border-border bg-background/80 rounded px-1.5 py-0.5 text-muted-foreground uppercase">
@@ -144,19 +216,27 @@ export default function CreatorDashboard() {
                         ${Number(gig.budget).toLocaleString()} BUDGET
                       </span>
                     </div>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-display text-lg tracking-wider text-foreground mb-1 uppercase">{gig.title}</h3>
+                  </button>
+                  <div className="p-4 flex flex-col flex-1">
+                    <button onClick={() => setLocation(`/creator/campaigns/${gig.id}`)} className="text-left">
+                      <h3 className="font-display text-lg tracking-wider text-foreground mb-1 uppercase hover:text-primary transition-colors">{gig.title}</h3>
+                    </button>
                     <p className="font-mono text-[9px] text-muted-foreground leading-relaxed mb-3 line-clamp-2">{gig.description ?? "No description provided."}</p>
-                    <div className="flex gap-2">
-                      <button className="flex-1 py-2 bg-primary text-primary-foreground font-mono text-[8px] tracking-widest rounded hover:bg-primary/90 transition-colors">
-                        APPLY
+                    <div className="flex gap-2 mt-auto">
+                      <button
+                        onClick={() => handleApply(gig.id)}
+                        disabled={applyToCampaign.isPending}
+                        className="flex-1 py-2 bg-primary text-primary-foreground font-mono text-[8px] tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-60"
+                      >
+                        {profile?.verificationStatus !== "verified" ? (
+                          <span className="flex items-center justify-center gap-1"><Lock className="w-3 h-3" /> APPLY</span>
+                        ) : "APPLY"}
                       </button>
                       <button
-                        onClick={() => setLocation("/brand/profile/" + gig.advertiserId)}
+                        onClick={() => setLocation(`/creator/campaigns/${gig.id}`)}
                         className="px-3 py-2 border border-border font-mono text-[8px] tracking-widest text-muted-foreground hover:border-foreground hover:text-foreground rounded transition-colors"
                       >
-                        VIEW BRAND →
+                        VIEW →
                       </button>
                     </div>
                   </div>
@@ -203,7 +283,10 @@ export default function CreatorDashboard() {
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                     </button>
-                    <button className="font-mono text-[9px] text-primary tracking-widest hover:underline text-left">VIEW →</button>
+                    <button
+                      onClick={() => entry.campaign?.advertiserId && setLocation("/brand/profile/" + entry.campaign.advertiserId)}
+                      className="font-mono text-[9px] text-primary tracking-widest hover:underline text-left"
+                    >VIEW →</button>
                   </div>
                 ))}
               </div>

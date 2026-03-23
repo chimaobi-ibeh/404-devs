@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { VyralLogo } from "@/components/VyralLogo";
 import { getLoginUrl } from "@/const";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Megaphone } from "lucide-react";
 import { useLocation } from "wouter";
 import { useEffect, useRef, useState } from "react";
 
@@ -151,11 +151,6 @@ export default function Home() {
         <div className="absolute top-0 right-1/4 w-[400px] h-[350px] rounded-full bg-accent/10 blur-[110px] pointer-events-none" />
 
         <div className="relative z-10 max-w-5xl mx-auto">
-          <p className="inline-flex items-center gap-2 text-xs font-semibold tracking-widest uppercase text-accent mb-5">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-            AI-Powered Creator Intelligence Live
-          </p>
-
           <h1 className="font-display text-[clamp(5rem,14vw,11rem)] leading-[0.9] text-foreground">
             GO VIRAL.
           </h1>
@@ -174,10 +169,11 @@ export default function Home() {
           <div className="flex flex-wrap gap-4 justify-center">
             <Button
               size="lg"
-              className="h-14 px-10 text-sm tracking-widest uppercase font-semibold bg-primary hover:bg-primary/90"
+              className="h-14 px-10 text-sm tracking-widest uppercase font-semibold bg-primary hover:bg-primary/90 gap-2"
               onClick={handleGetStarted}
             >
-              Launch Campaign 🚀
+              <Megaphone className="w-4 h-4" />
+              Launch Campaign
             </Button>
             <Button
               size="lg"

@@ -24,6 +24,9 @@ import ProfilePage from "./pages/ProfilePage";
 import MessagesPage from "./pages/MessagesPage";
 import ContentCalendarPage from "./pages/ContentCalendarPage";
 import BrandProfilePage from "./pages/BrandProfilePage";
+import CreatorProfilePage from "./pages/CreatorProfilePage";
+import CreatorCampaignView from "./pages/CreatorCampaignView";
+import CampaignMarketplace from "./pages/CampaignMarketplace";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 // ─── Access rules ─────────────────────────────────────────────────────────────
@@ -89,14 +92,18 @@ function Router() {
       {/* Advertiser + Admin */}
       <Route path="/brand/dashboard"><ProtectedRoute component={BrandDashboard} allow="advertiser" /></Route>
       <Route path="/brand/campaigns/new"><ProtectedRoute component={CampaignCreate} allow="advertiser" /></Route>
+      <Route path="/brand/campaigns/:id/edit"><ProtectedRoute component={CampaignCreate} allow="advertiser" /></Route>
       <Route path="/brand/campaigns/:id"><ProtectedRoute component={CampaignDetail} allow="advertiser" /></Route>
       <Route path="/brand/vyral-match/:campaignId"><ProtectedRoute component={VyralMatch} allow="advertiser" /></Route>
       <Route path="/brand/content-approval/:campaignId"><ProtectedRoute component={ContentApproval} allow="advertiser" /></Route>
 
       {/* Creator + Admin */}
       <Route path="/creator/dashboard"><ProtectedRoute component={CreatorDashboard} allow="creator" /></Route>
+      <Route path="/creator/campaigns/:id"><ProtectedRoute component={CreatorCampaignView} allow="creator" /></Route>
+      <Route path="/creator/marketplace"><ProtectedRoute component={CampaignMarketplace} allow="creator" /></Route>
       <Route path="/creator/earnings"><ProtectedRoute component={CreatorEarnings} allow="creator" /></Route>
       <Route path="/brand/profile/:id"><ProtectedRoute component={BrandProfilePage} allow="creator" /></Route>
+      <Route path="/creator/profile/:id"><ProtectedRoute component={CreatorProfilePage} /></Route>
 
       {/* Admin only */}
       <Route path="/admin"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>

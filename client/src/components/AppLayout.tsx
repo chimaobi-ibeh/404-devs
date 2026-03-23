@@ -7,6 +7,7 @@ import {
   LayoutDashboard, TrendingUp, DollarSign, Users, Bell,
   HelpCircle, LogOut, User, Megaphone, Shield,
   FileText, Check, CheckCheck, MessageSquare, Calendar,
+  Menu, X,
 } from "lucide-react";
 
 interface AppLayoutProps {
@@ -28,7 +29,7 @@ function getSidebarLinks(role: string) {
   if (role === "creator") return [
     { icon: LayoutDashboard, label: "Dashboard",  path: "/creator/dashboard" },
     { icon: DollarSign,      label: "Earnings",   path: "/creator/earnings" },
-    { icon: Users,           label: "Marketplace",path: "/creator/directory" },
+    { icon: Users,           label: "Marketplace",path: "/creator/marketplace" },
     { icon: MessageSquare,   label: "Messages",   path: "/messages" },
     { icon: Calendar,        label: "Calendar",   path: "/calendar" },
     { icon: User,            label: "Profile",    path: "/profile" },
@@ -134,12 +135,49 @@ function NotificationsDropdown() {
   );
 }
 
+// ─── Sidebar nav links (shared between desktop sidebar and mobile drawer) ──────
+function SidebarNav({
+  links,
+  location,
+  isActive,
+  onNavigate,
+}: {
+  links: { icon: React.ElementType; label: string; path: string }[];
+  location: string;
+  isActive: (path: string) => boolean;
+  onNavigate: (path: string) => void;
+}) {
+  return (
+    <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+      {links.map(({ icon: Icon, label, path }) => {
+        const active = isActive(path);
+        return (
+          <button
+            key={label}
+            onClick={() => onNavigate(path)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-left transition-colors ${
+              active
+                ? "bg-primary/10 text-primary border border-primary/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent"
+            }`}
+          >
+            <Icon className={`w-4 h-4 shrink-0 ${active ? "text-primary" : ""}`} />
+            <span className="font-mono text-xs tracking-wider uppercase">{label}</span>
+            {active && <span className="ml-auto w-1 h-4 rounded-full bg-primary" />}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 // ─── Main Layout ──────────────────────────────────────────────────────────────
 export default function AppLayout({ children }: AppLayoutProps) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const role = user?.role ?? "creator";
   const sidebarLinks = getSidebarLinks(role);
@@ -150,16 +188,23 @@ export default function AppLayout({ children }: AppLayoutProps) {
     refetchOnWindowFocus: false,
   });
 
+  // Close drawer and scroll to top on route change
   useEffect(() => {
+    setDrawerOpen(false);
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [location]);
+
+  // Prevent body scroll when drawer is open
+  useEffect(() => {
+    document.body.style.overflow = drawerOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [drawerOpen]);
 
   async function handleLogout() {
     await logout();
     setLocation("/auth");
   }
 
-  // Auto-detect active sidebar link from current path
   function isActive(path: string) {
     if (path === "/brand/dashboard" || path === "/creator/dashboard" || path === "/admin") {
       return location === path;
@@ -167,10 +212,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return location.startsWith(path);
   }
 
+  function navigate(path: string) {
+    setLocation(path);
+    setDrawerOpen(false);
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Sidebar - Hidden on mobile, visible on tablet+ */}
-      <aside className="fixed left-0 top-0 h-full w-52 bg-card border-r border-border flex flex-col z-40 hidden md:flex">
+
+      {/* ── Desktop sidebar ─────────────────────────────────────────── */}
+      <aside className="fixed left-0 top-0 h-full w-52 bg-card border-r border-border flex-col z-40 hidden md:flex">
         <div className="p-4 border-b border-border">
           <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-8 w-auto mb-2" />
           <div className="flex items-center gap-1.5">
@@ -181,26 +232,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
         </div>
 
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {sidebarLinks.map(({ icon: Icon, label, path }) => {
-            const active = isActive(path);
-            return (
-              <button
-                key={label}
-                onClick={() => setLocation(path)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-left transition-colors ${
-                  active
-                    ? "bg-primary/10 text-primary border border-primary/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent"
-                }`}
-              >
-                <Icon className={`w-4 h-4 shrink-0 ${active ? "text-primary" : ""}`} />
-                <span className="font-mono text-xs tracking-wider uppercase">{label}</span>
-                {active && <span className="ml-auto w-1 h-4 rounded-full bg-primary" />}
-              </button>
-            );
-          })}
-        </nav>
+        <SidebarNav links={sidebarLinks} location={location} isActive={isActive} onNavigate={navigate} />
 
         <div className="p-3 border-t border-border">
           <div className="flex gap-2">
@@ -219,9 +251,85 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </div>
       </aside>
 
-      {/* Top bar - Responsive positioning */}
+      {/* ── Mobile drawer overlay ────────────────────────────────────── */}
+      {drawerOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-50 md:hidden"
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
+      {/* ── Mobile slide-in drawer ───────────────────────────────────── */}
+      <aside
+        className={`fixed left-0 top-0 h-full w-72 bg-card border-r border-border flex flex-col z-50 md:hidden transition-transform duration-300 ease-in-out ${
+          drawerOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <div>
+            <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-8 w-auto mb-1" />
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse" />
+              <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase">
+                {role} console
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setDrawerOpen(false)}
+            className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* User info */}
+        <div className="px-4 py-3 border-b border-border flex items-center gap-3">
+          <button
+            onClick={() => navigate("/profile")}
+            className="w-9 h-9 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0"
+          >
+            <span className="font-mono text-sm text-primary font-bold">{initial}</span>
+          </button>
+          <div className="min-w-0">
+            <p className="font-mono text-xs text-foreground truncate">{user?.name ?? user?.email ?? "—"}</p>
+            <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">{role}</p>
+          </div>
+        </div>
+
+        <SidebarNav links={sidebarLinks} location={location} isActive={isActive} onNavigate={navigate} />
+
+        <div className="p-3 border-t border-border">
+          <div className="flex gap-2">
+            <button className="flex-1 flex items-center justify-center gap-1 py-2 text-muted-foreground hover:text-foreground transition-colors">
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span className="font-mono text-[9px] tracking-wider">SUPPORT</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex-1 flex items-center justify-center gap-1 py-2 text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="font-mono text-[9px] tracking-wider">LOGOUT</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Top header ──────────────────────────────────────────────── */}
       <header className="fixed top-0 left-0 right-0 h-14 bg-card border-b border-border flex items-center px-4 md:px-6 z-40 md:left-52">
-        <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-8 w-auto md:hidden" />
+        {/* Hamburger — mobile only */}
+        <button
+          onClick={() => setDrawerOpen(true)}
+          className="md:hidden w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors mr-3"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        {/* Logo — mobile only (desktop shows in sidebar) */}
+        <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-7 w-auto md:hidden" />
 
         <div className="flex-1" />
 
@@ -238,11 +346,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
               </span>
             )}
           </button>
+
           <NotificationsDropdown />
-          <div className="hidden sm:flex items-center gap-2 pl-2 md:pl-3 border-l border-border">
+
+          <div className="flex items-center gap-2 pl-2 md:pl-3 border-l border-border">
             <div className="text-right hidden sm:block">
               <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">{role}</p>
-              <p className="font-mono text-[10px] text-foreground truncate max-w-[100px] md:max-w-[140px]">{user?.name ?? user?.email ?? "—"}</p>
+              <p className="font-mono text-[10px] text-foreground truncate max-w-[100px] md:max-w-[140px]">
+                {user?.name ?? user?.email ?? "—"}
+              </p>
             </div>
             <button
               onClick={() => setLocation("/profile")}
@@ -250,36 +362,19 @@ export default function AppLayout({ children }: AppLayoutProps) {
             >
               <span className="font-mono text-xs text-primary font-bold">{initial}</span>
             </button>
-            <button onClick={handleLogout} title="Sign out" className="hidden md:flex w-8 h-8 items-center justify-center text-muted-foreground hover:text-destructive transition-colors">
+            <button
+              onClick={handleLogout}
+              title="Sign out"
+              className="hidden md:flex w-8 h-8 items-center justify-center text-muted-foreground hover:text-destructive transition-colors"
+            >
               <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile bottom navigation - Only visible on mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border md:hidden z-40 flex overflow-x-auto">
-        {sidebarLinks.map(({ icon: Icon, label, path }) => {
-          const active = isActive(path);
-          return (
-            <button
-              key={label}
-              onClick={() => setLocation(path)}
-              className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors ${
-                active
-                  ? "text-primary border-t-2 border-primary"
-                  : "text-muted-foreground border-t-2 border-transparent"
-              }`}
-              title={label}
-            >
-              <Icon className="w-5 h-5" />
-              <span className="font-mono text-[8px] tracking-wider mt-0.5 leading-none">{label.split(' ')[0]}</span>
-            </button>
-          );
-        })}
-      </nav>
-
-      <main className="mt-14 mb-16 md:mb-0 md:ml-52 min-h-screen bg-background md:pb-0 pb-4">
+      {/* ── Main content ────────────────────────────────────────────── */}
+      <main className="mt-14 md:ml-52 min-h-screen bg-background">
         {children}
       </main>
     </div>

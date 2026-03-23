@@ -107,6 +107,23 @@ export async function getAdvertiserProfile(userId: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getPublicAdvertiserProfile(userId: number) {
+  // userId here is users.id (same as campaigns.advertiserId)
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(advertiserProfiles).where(eq(advertiserProfiles.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getActiveCampaignsByAdvertiser(userId: number, limit = 10) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(campaigns)
+    .where(and(eq(campaigns.advertiserId, userId), eq(campaigns.status, "active")))
+    .orderBy(desc(campaigns.createdAt))
+    .limit(limit);
+}
+
 export async function createAdvertiserProfile(data: typeof advertiserProfiles.$inferInsert) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -286,7 +303,8 @@ export async function getCreatorRosterEntries(creatorProfileId: number) {
   if (!db) return [];
   return db
     .select({ id: campaignRosters.id, status: campaignRosters.status, creatorFee: campaignRosters.creatorFee,
-      campaign: { id: campaigns.id, title: campaigns.title, deadline: campaigns.deadline } })
+      campaignId: campaignRosters.campaignId,
+      campaign: { id: campaigns.id, title: campaigns.title, deadline: campaigns.deadline, advertiserId: campaigns.advertiserId } })
     .from(campaignRosters)
     .innerJoin(campaigns, eq(campaignRosters.campaignId, campaigns.id))
     .where(eq(campaignRosters.creatorId, creatorProfileId))
@@ -824,9 +842,9 @@ export async function getConversationsByUser(userId: number) {
 
   if (convs.length === 0) return [];
 
-  const campaignIds = [...new Set(convs.map((c) => c.campaignId))];
-  const advertiserUserIds = [...new Set(convs.map((c) => c.advertiserId))];
-  const creatorUserIds = [...new Set(convs.map((c) => c.creatorId))];
+  const campaignIds = Array.from(new Set(convs.map((c) => c.campaignId)));
+  const advertiserUserIds = Array.from(new Set(convs.map((c) => c.advertiserId)));
+  const creatorUserIds = Array.from(new Set(convs.map((c) => c.creatorId)));
   const convIds = convs.map((c) => c.id);
 
   const [camps, advProfiles, crProfiles, unreadRows] = await Promise.all([
@@ -918,6 +936,25 @@ export async function getPendingCreators(limit = 50) {
     ...c,
     socialAccounts: socials.filter((s) => s.creatorId === c.id),
   }));
+}
+
+export async function getPublicCreatorProfile(creatorProfileId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const [profile] = await db.select().from(creatorProfiles).where(eq(creatorProfiles.id, creatorProfileId)).limit(1);
+  if (!profile) return undefined;
+  const socials = await db.select().from(socialMediaAccounts).where(eq(socialMediaAccounts.creatorId, creatorProfileId));
+  const portfolio = await db.select().from(portfolioItems).where(eq(portfolioItems.creatorId, creatorProfileId));
+  const [userRow] = await db.select({ name: users.name }).from(users).where(eq(users.id, profile.userId)).limit(1);
+  return { ...profile, socialAccounts: socials, portfolioItems: portfolio, userName: userRow?.name ?? null };
+}
+
+export async function getContentSubmissionsForCampaign(campaignId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(contentSubmissions)
+    .where(eq(contentSubmissions.campaignId, campaignId))
+    .orderBy(desc(contentSubmissions.submittedAt));
 }
 
 export async function resolveDispute(disputeId: number, resolution: string, status: string, resolvedBy: number) {

@@ -16,6 +16,7 @@ import { getCreatorProfile, getAdvertiserProfile } from "../db";
 import { ENV } from "./env";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
+import crypto from "crypto";
 
 function makeAdminClient() {
   return createClient(ENV.supabaseUrl, ENV.supabaseServiceRoleKey, {
@@ -57,6 +58,26 @@ async function issueSession(
     ...getSessionCookieOptions(req),
     maxAge: ONE_YEAR_MS,
   });
+}
+
+// ─── PKCE helpers ─────────────────────────────────────────────────────────────
+function generateVerifier(): string {
+  return crypto.randomBytes(32).toString("base64url");
+}
+function generateChallenge(verifier: string): string {
+  return crypto.createHash("sha256").update(verifier).digest("base64url");
+}
+
+async function resolveRedirect(openId: string): Promise<string> {
+  const dbUser = await db.getUserByOpenId(openId).catch(() => null);
+  if (!dbUser) return "/onboarding";
+  if (dbUser.role === "admin") return "/admin";
+  if (dbUser.role === "advertiser") {
+    const p = await getAdvertiserProfile(dbUser.id).catch(() => null);
+    return p ? "/brand/dashboard" : "/onboarding";
+  }
+  const p = await getCreatorProfile(dbUser.id).catch(() => null);
+  return p ? "/creator/dashboard" : "/onboarding";
 }
 
 export function registerOAuthRoutes(app: Express) {
@@ -224,6 +245,83 @@ export function registerOAuthRoutes(app: Express) {
       res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
+  /**
+   * GET /api/auth/google
+   * Generates a Supabase Google OAuth URL (PKCE) and redirects the browser.
+   * Stores the PKCE code_verifier in an HTTP-only cookie for the callback.
+   */
+  app.get("/api/auth/google", async (req: Request, res: Response) => {
+    if (!ENV.supabaseUrl || !ENV.supabaseAnonKey) {
+      res.redirect("/auth?error=Google+OAuth+not+configured");
+      return;
+    }
+    const verifier = generateVerifier();
+    const challenge = generateChallenge(verifier);
+    const callbackUrl = `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+    const params = new URLSearchParams({
+      provider: "google",
+      redirect_to: callbackUrl,
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+    });
+    res.cookie("_pkce_v", verifier, {
+      httpOnly: true,
+      secure: ENV.isProduction,
+      maxAge: 5 * 60 * 1000,
+      sameSite: "lax",
+    });
+    res.redirect(`${ENV.supabaseUrl}/auth/v1/authorize?${params.toString()}`);
+  });
+
+  /**
+   * GET /api/auth/google/callback
+   * Exchanges the OAuth code for a Supabase session (PKCE), then issues our
+   * own session cookie and redirects to the correct dashboard.
+   */
+  app.get("/api/auth/google/callback", async (req: Request, res: Response) => {
+    const code = req.query.code as string | undefined;
+    const verifier = (req as any).cookies?._pkce_v as string | undefined;
+    res.clearCookie("_pkce_v");
+
+    if (!code || !verifier) {
+      res.redirect("/auth?error=Google+sign-in+failed");
+      return;
+    }
+
+    try {
+      // Exchange code + verifier for tokens via Supabase REST API
+      const tokenRes = await fetch(`${ENV.supabaseUrl}/auth/v1/token?grant_type=pkce`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: ENV.supabaseAnonKey },
+        body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
+      });
+      const tokenData = await tokenRes.json() as any;
+      if (!tokenRes.ok || !tokenData.access_token) {
+        console.error("[Google OAuth] Token exchange failed:", tokenData);
+        res.redirect("/auth?error=Google+sign-in+failed");
+        return;
+      }
+
+      // Verify token and get user info
+      const admin = makeAdminClient();
+      const { data: { user }, error } = await admin.auth.getUser(tokenData.access_token);
+      if (error || !user) {
+        res.redirect("/auth?error=Google+sign-in+failed");
+        return;
+      }
+
+      const email = user.email ?? "";
+      const name = user.user_metadata?.full_name ?? user.user_metadata?.name ?? email;
+      await issueSession(res, req, user.id, email, name);
+
+      const redirect = await resolveRedirect(user.id);
+      res.redirect(redirect);
+    } catch (err: any) {
+      console.error("[Google OAuth] Callback error:", err?.message ?? err);
+      res.redirect("/auth?error=Google+sign-in+failed");
     }
   });
 }

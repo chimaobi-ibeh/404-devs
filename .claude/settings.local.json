@@ -22,7 +22,8 @@
       "Bash(npx tsx:*)",
       "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
       "Bash(xargs grep:*)",
-      "Bash(find /c/Users/user/Downloads/vyral-platform/server -type f -name *.ts)"
+      "Bash(find /c/Users/user/Downloads/vyral-platform/server -type f -name *.ts)",
+      "Bash(npx vite:*)"
     ]
   }
 }

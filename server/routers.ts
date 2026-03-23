@@ -49,6 +49,18 @@ const advertiserRouter = router({
     return db.getAdvertiserProfile(ctx.user.id);
   }),
 
+  getPublicProfile: protectedProcedure
+    .input(z.object({ userId: z.number() }))
+    .query(async ({ input }) => {
+      return db.getPublicAdvertiserProfile(input.userId);
+    }),
+
+  getPublicCampaigns: protectedProcedure
+    .input(z.object({ userId: z.number(), limit: z.number().default(10) }))
+    .query(async ({ input }) => {
+      return db.getActiveCampaignsByAdvertiser(input.userId, input.limit);
+    }),
+
   createProfile: protectedProcedure
     .input(
       z.object({
@@ -158,8 +170,8 @@ const advertiserRouter = router({
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
       const campaign = await db.getCampaign(input.id);
-      // Only allow the owning advertiser or admins to view campaign detail
-      if (campaign && campaign.advertiserId !== ctx.user.id && ctx.user.role !== "admin") {
+      // Creators can view active campaigns; advertisers can only view their own
+      if (campaign && ctx.user.role === "advertiser" && campaign.advertiserId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       return campaign;
@@ -267,6 +279,49 @@ const advertiserRouter = router({
       if (campaign.advertiserId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       if (campaign.status !== "draft") throw new TRPCError({ code: "BAD_REQUEST", message: "Campaign is not a draft" });
       await db.updateCampaignStatus(input.campaignId, "active");
+      return { success: true };
+    }),
+
+  updateCampaign: protectedProcedure
+    .input(z.object({
+      campaignId: z.number(),
+      title: z.string().min(1).optional(),
+      description: z.string().optional(),
+      budget: z.number().optional(),
+      deadline: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const campaign = await db.getCampaign(input.campaignId);
+      if (!campaign) throw new TRPCError({ code: "NOT_FOUND" });
+      if (campaign.advertiserId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      const { campaignId, deadline, budget, ...rest } = input;
+      return db.updateCampaign(campaignId, {
+        ...rest,
+        ...(budget !== undefined ? { budget: String(budget) } : {}),
+        ...(deadline !== undefined ? { deadline: new Date(deadline) } : {}),
+      });
+    }),
+
+  getContentSubmissions: protectedProcedure
+    .input(z.object({ campaignId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const campaign = await db.getCampaign(input.campaignId);
+      if (!campaign) throw new TRPCError({ code: "NOT_FOUND" });
+      if (campaign.advertiserId !== ctx.user.id && ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      return db.getContentSubmissionsForCampaign(input.campaignId);
+    }),
+
+  acceptRosterEntry: protectedProcedure
+    .input(z.object({ rosterId: z.number(), creatorFee: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const roster = await db.getRosterEntry(input.rosterId);
+      if (!roster) throw new TRPCError({ code: "NOT_FOUND" });
+      const campaign = await db.getCampaign(roster.campaignId);
+      if (!campaign || campaign.advertiserId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      await db.updateRosterStatus(input.rosterId, "accepted");
+      await db.updateCampaign(roster.campaignId, { budget: String(Number(campaign.budget)) });
       return { success: true };
     }),
 });
@@ -679,6 +734,20 @@ const creatorRouter = router({
       if (!profile) throw new TRPCError({ code: "FORBIDDEN" });
       await db.deletePortfolioItem(input.itemId, profile.id);
       return { success: true };
+    }),
+
+  submitForVerification: protectedProcedure.mutation(async ({ ctx }) => {
+    const profile = await db.getCreatorProfile(ctx.user.id);
+    if (!profile) throw new TRPCError({ code: "BAD_REQUEST", message: "Creator profile not found" });
+    // Reset to pending so admin sees it in the queue
+    await db.updateCreatorProfile(ctx.user.id, { verificationStatus: "pending" });
+    return { success: true };
+  }),
+
+  getPublicProfile: protectedProcedure
+    .input(z.object({ creatorProfileId: z.number() }))
+    .query(async ({ input }) => {
+      return db.getPublicCreatorProfile(input.creatorProfileId);
     }),
 });
 
