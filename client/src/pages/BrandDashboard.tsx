@@ -1,23 +1,19 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { Plus, Rocket } from "lucide-react";
 
 export default function BrandDashboard() {
-  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { data: campaigns, isLoading } = trpc.advertiser.getCampaigns.useQuery({ limit: 20 });
 
-  if (!user || user.role !== "advertiser") {
-    return <div className="p-8 text-muted-foreground font-mono text-sm">ACCESS DENIED</div>;
-  }
 
   const activeCampaigns = campaigns?.filter((c) => c.status === "active") ?? [];
   const draftCampaigns = campaigns?.filter((c) => c.status === "draft") ?? [];
+  const totalBudget = campaigns?.reduce((sum, c) => sum + Number(c.budget ?? 0), 0) ?? 0;
 
   return (
-    <AppLayout activeNav="CAMPAIGNS" activeSidebar="Dashboard">
+    <AppLayout>
       <div className="p-8">
         {/* Page Header */}
         <div className="flex items-start justify-between mb-8">
@@ -36,10 +32,12 @@ export default function BrandDashboard() {
 
         {/* Stat Cards Row */}
         <div className="grid grid-cols-4 gap-4 mb-8">
-          {/* Total Spend */}
+          {/* Total Budget */}
           <div className="bg-card border border-border rounded-lg p-5">
-            <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">TOTAL SPEND</p>
-            <p className="font-mono text-2xl text-signal font-bold">$42,850.00</p>
+            <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">TOTAL BUDGET</p>
+            <p className="font-mono text-2xl text-signal font-bold">
+              ${totalBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            </p>
           </div>
 
           {/* Active Campaigns */}
@@ -57,20 +55,22 @@ export default function BrandDashboard() {
             </div>
           </div>
 
-          {/* Total Reach */}
+          {/* Total Campaigns */}
           <div className="bg-card border border-border rounded-lg p-5">
-            <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">TOTAL REACH</p>
-            <p className="font-mono text-2xl text-foreground font-bold">2.4M</p>
+            <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">TOTAL CAMPAIGNS</p>
+            <p className="font-mono text-2xl text-foreground font-bold">{campaigns?.length ?? 0}</p>
           </div>
 
-          {/* Pending Approvals */}
+          {/* Drafts */}
           <div className="bg-card border border-border rounded-lg p-5">
-            <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">PENDING APPROVALS</p>
+            <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">DRAFTS</p>
             <div className="flex items-center gap-3">
-              <p className="font-mono text-2xl text-foreground font-bold">08</p>
-              <span className="font-mono text-[8px] text-primary border border-primary/40 rounded px-1.5 py-0.5 tracking-widest">
-                ACTION REQUIRED
-              </span>
+              <p className="font-mono text-2xl text-foreground font-bold">{draftCampaigns.length}</p>
+              {draftCampaigns.length > 0 && (
+                <span className="font-mono text-[8px] text-primary border border-primary/40 rounded px-1.5 py-0.5 tracking-widest">
+                  PENDING LAUNCH
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -114,26 +114,16 @@ export default function BrandDashboard() {
                         </p>
                       </div>
 
-                      {/* Completion % */}
+                      {/* Budget */}
                       <div className="text-right shrink-0">
-                        <p className="font-mono text-sm text-signal font-bold">72%</p>
-                        <p className="font-mono text-[8px] text-muted-foreground">COMPLETE</p>
+                        <p className="font-mono text-sm text-signal font-bold">${Number(campaign.budget).toLocaleString()}</p>
+                        <p className="font-mono text-[8px] text-muted-foreground">BUDGET</p>
                       </div>
 
-                      {/* Stats */}
-                      <div className="flex gap-4 text-right shrink-0">
-                        <div>
-                          <p className="font-mono text-xs text-foreground">1.2M</p>
-                          <p className="font-mono text-[8px] text-muted-foreground">IMPRESSIONS</p>
-                        </div>
-                        <div>
-                          <p className="font-mono text-xs text-foreground">3.4%</p>
-                          <p className="font-mono text-[8px] text-muted-foreground">CONV</p>
-                        </div>
-                        <div>
-                          <p className="font-mono text-xs text-foreground">4.2x</p>
-                          <p className="font-mono text-[8px] text-muted-foreground">ROAS</p>
-                        </div>
+                      {/* Deadline */}
+                      <div className="text-right shrink-0">
+                        <p className="font-mono text-xs text-foreground">{new Date(campaign.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+                        <p className="font-mono text-[8px] text-muted-foreground">DEADLINE</p>
                       </div>
                     </div>
                   ))}
@@ -151,22 +141,22 @@ export default function BrandDashboard() {
               )}
             </div>
 
-            {/* System Logs */}
+            {/* Campaign Summary */}
             <div className="bg-black/50 rounded border border-border p-4">
-              <p className="font-mono text-[9px] text-muted-foreground tracking-widest mb-3 uppercase">SYSTEM_LOGS</p>
+              <p className="font-mono text-[9px] text-muted-foreground tracking-widest mb-3 uppercase">CAMPAIGN SUMMARY</p>
               <div className="space-y-2">
-                {[
-                  { tag: "OK", color: "text-signal", msg: "Campaign NEON_RUSH_2024 — content approved by @creator_x" },
-                  { tag: "INFO", color: "text-muted-foreground", msg: "New creator match detected for campaign VY-082" },
-                  { tag: "WARN", color: "text-gold", msg: "Pending approval deadline in 2h — campaign VY-045" },
-                  { tag: "OK", color: "text-signal", msg: "Payout processed — $1,200 to @luminary_kai" },
-                  { tag: "INFO", color: "text-muted-foreground", msg: "System sync complete — all nodes operational" },
-                ].map((log, i) => (
-                  <div key={i} className="flex items-start gap-2 font-mono text-[10px]">
-                    <span className={`shrink-0 ${log.color}`}>[{log.tag}]</span>
-                    <span className="text-muted-foreground">{log.msg}</span>
-                  </div>
-                ))}
+                <div className="flex items-start gap-2 font-mono text-[10px]">
+                  <span className="shrink-0 text-signal">[OK]</span>
+                  <span className="text-muted-foreground">Active campaigns: {activeCampaigns.length}</span>
+                </div>
+                <div className="flex items-start gap-2 font-mono text-[10px]">
+                  <span className="shrink-0 text-gold">[INFO]</span>
+                  <span className="text-muted-foreground">Draft campaigns pending launch: {draftCampaigns.length}</span>
+                </div>
+                <div className="flex items-start gap-2 font-mono text-[10px]">
+                  <span className="shrink-0 text-muted-foreground">[INFO]</span>
+                  <span className="text-muted-foreground">Total allocated budget: ${totalBudget.toLocaleString()}</span>
+                </div>
               </div>
             </div>
           </div>

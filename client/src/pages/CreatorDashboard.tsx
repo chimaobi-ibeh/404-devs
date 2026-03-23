@@ -4,69 +4,36 @@ import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { ArrowRight, Lock } from "lucide-react";
 
-const mockGigs = [
-  {
-    id: 1,
-    title: "NEON_RUSH_2024",
-    category: "#TECH_CORE",
-    niche: "#GADGETS",
-    rate: "$800/POST",
-    description: "Showcase our flagship device in your signature style. Authentic content only.",
-    inviteOnly: false,
-  },
-  {
-    id: 2,
-    title: "SUMMIT_COLLAB_Q4",
-    category: "#LIFESTYLE_X",
-    niche: "#WELLNESS",
-    rate: "$1,200/POST",
-    description: "Join our wellness brand campaign targeting premium audiences this quarter.",
-    inviteOnly: true,
-  },
-  {
-    id: 3,
-    title: "CIRCUIT_DROP_V3",
-    category: "#GAMING_PRO",
-    niche: "#ESPORTS",
-    rate: "$600/POST",
-    description: "Gaming peripheral launch — create your most viral-worthy unboxing content.",
-    inviteOnly: false,
-  },
-];
-
-const mockActiveCampaigns = [
-  { id: 1, name: "NEON_RUSH_2024", status: "LIVE", timeLeft: "3D 14H", earnings: "$800.00" },
-  { id: 2, name: "SUMMIT_COLLAB_Q4", status: "DRAFT", timeLeft: "7D 02H", earnings: "$1,200.00" },
-];
-
 const statusColors: Record<string, string> = {
-  LIVE: "text-signal",
-  DRAFT: "text-gold",
-  PENDING: "text-muted-foreground",
+  active:  "text-signal",
+  draft:   "text-gold",
+  pending: "text-muted-foreground",
+  ended:   "text-muted-foreground",
 };
 
 const statusDots: Record<string, string> = {
-  LIVE: "bg-signal",
-  DRAFT: "bg-gold",
-  PENDING: "bg-muted-foreground",
+  active:  "bg-signal",
+  draft:   "bg-gold",
+  pending: "bg-muted-foreground",
+  ended:   "bg-muted-foreground",
 };
 
 export default function CreatorDashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { data: profile } = trpc.creator.getProfile.useQuery();
-  const { data: subscription } = trpc.creator.getSubscription.useQuery();
   const { data: earnings } = trpc.creator.getEarnings.useQuery();
+  const { data: openCampaigns } = trpc.advertiser.getCampaigns.useQuery({ limit: 6 });
+  const { data: myRoster } = trpc.creator.getMyRosterEntries.useQuery();
 
-  if (!user || user.role !== "creator") {
-    return <div className="p-8 text-muted-foreground font-mono text-sm">ACCESS DENIED</div>;
-  }
-
-  const totalEarnings = earnings?.totalEarnings ?? 42980.50;
-  const vyralScore = Number(profile?.vyralScore ?? 98);
+  const totalEarnings = earnings?.totalEarnings ?? 0;
+  const pendingEarnings = earnings?.pendingEarnings ?? 0;
+  const availableEarnings = Math.max(0, totalEarnings - pendingEarnings);
+  const vyralScore = Number(profile?.vyralScore ?? 0);
+  const displayName = profile?.displayName ?? user?.name ?? user?.email ?? "Creator";
 
   return (
-    <AppLayout activeNav="MARKETPLACE" activeSidebar="Dashboard">
+    <AppLayout>
       <div className="p-8">
         {/* Header */}
         <div className="mb-4">
@@ -87,16 +54,15 @@ export default function CreatorDashboard() {
             <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-2">CUMULATIVE EARNINGS</p>
             <div className="flex items-baseline gap-3 mb-4">
               <p className="font-mono text-5xl text-signal font-bold">${totalEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
-              <span className="font-mono text-xs text-signal border border-signal/40 rounded px-2 py-0.5">+12.4%</span>
             </div>
             <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
               <div>
                 <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-1">AVAILABLE FOR PAYOUT</p>
-                <p className="font-mono text-xl text-foreground font-bold">$14,282.50</p>
+                <p className="font-mono text-xl text-foreground font-bold">${availableEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
               </div>
               <div>
                 <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-1">PENDING CLEARANCE</p>
-                <p className="font-mono text-xl text-muted-foreground font-bold">$4,120.00</p>
+                <p className="font-mono text-xl text-muted-foreground font-bold">${pendingEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>
@@ -130,10 +96,10 @@ export default function CreatorDashboard() {
           </div>
         </div>
 
-        {/* Available Gigs */}
+        {/* Open Campaigns / Gigs */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-mono text-xs text-foreground tracking-widest font-bold uppercase">AVAILABLE GIGS</h2>
+            <h2 className="font-mono text-xs text-foreground tracking-widest font-bold uppercase">OPEN CAMPAIGNS</h2>
             <button
               onClick={() => setLocation("/creator/directory")}
               className="flex items-center gap-1.5 font-mono text-[9px] text-primary tracking-widest hover:underline"
@@ -142,72 +108,84 @@ export default function CreatorDashboard() {
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            {mockGigs.map((gig) => (
-              <div key={gig.id} className="bg-card border border-border rounded-lg overflow-hidden hover:border-primary/30 transition-colors">
-                {/* Image */}
-                <div className="relative h-32 bg-muted grayscale flex items-center justify-center">
-                  <span className="font-mono text-[9px] text-muted-foreground">CAMPAIGN VISUAL</span>
-                  {gig.inviteOnly && (
-                    <div className="absolute top-2 left-2 flex items-center gap-1 bg-gold/20 border border-gold/40 rounded px-2 py-0.5">
-                      <Lock className="w-2.5 h-2.5 text-gold" />
-                      <span className="font-mono text-[7px] text-gold tracking-widest">INVITE ONLY</span>
+          {!openCampaigns || openCampaigns.length === 0 ? (
+            <div className="bg-card border border-dashed border-border rounded-lg p-10 text-center">
+              <p className="font-mono text-xs text-muted-foreground tracking-widest uppercase mb-1">NO OPEN CAMPAIGNS YET</p>
+              <p className="text-sm text-muted-foreground">Check back soon — brands will post gigs here.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              {openCampaigns.filter(c => c.status === "active").slice(0, 3).map((gig) => (
+                <div key={gig.id} className="bg-card border border-border rounded-lg overflow-hidden hover:border-primary/30 transition-colors">
+                  <div className="relative h-32 bg-muted flex items-center justify-center">
+                    <span className="font-mono text-[9px] text-muted-foreground">CAMPAIGN VISUAL</span>
+                    <div className="absolute top-2 right-2">
+                      <span className="font-mono text-[7px] border border-border bg-background/80 rounded px-1.5 py-0.5 text-muted-foreground uppercase">
+                        {gig.category}
+                      </span>
                     </div>
-                  )}
-                  <div className="absolute top-2 right-2 flex gap-1">
-                    <span className="font-mono text-[7px] border border-border bg-background/80 rounded px-1.5 py-0.5 text-muted-foreground">
-                      {gig.category}
-                    </span>
+                    <div className="absolute bottom-2 right-2">
+                      <span className="font-mono text-[8px] text-signal bg-background/80 border border-signal/30 rounded px-1.5 py-0.5">
+                        ${Number(gig.budget).toLocaleString()} BUDGET
+                      </span>
+                    </div>
                   </div>
-                  <div className="absolute bottom-2 right-2">
-                    <span className="font-mono text-[8px] text-signal bg-background/80 border border-signal/30 rounded px-1.5 py-0.5">
-                      {gig.rate}
-                    </span>
+                  <div className="p-4">
+                    <h3 className="font-display text-lg tracking-wider text-foreground mb-1 uppercase">{gig.title}</h3>
+                    <p className="font-mono text-[9px] text-muted-foreground leading-relaxed mb-3 line-clamp-2">{gig.description ?? "No description provided."}</p>
+                    <div className="flex gap-2">
+                      <button className="flex-1 py-2 bg-primary text-primary-foreground font-mono text-[8px] tracking-widest rounded hover:bg-primary/90 transition-colors">
+                        APPLY
+                      </button>
+                      <button
+                        onClick={() => setLocation("/brand/profile/" + gig.advertiserId)}
+                        className="px-3 py-2 border border-border font-mono text-[8px] tracking-widest text-muted-foreground hover:border-foreground hover:text-foreground rounded transition-colors"
+                      >
+                        VIEW BRAND →
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                <div className="p-4">
-                  <h3 className="font-display text-lg tracking-wider text-foreground mb-1">{gig.title}</h3>
-                  <p className="font-mono text-[9px] text-muted-foreground leading-relaxed mb-3 line-clamp-2">{gig.description}</p>
-                  <button className="w-full py-2 bg-primary text-primary-foreground font-mono text-[8px] tracking-widest rounded hover:bg-primary/90 transition-colors">
-                    ACCEPT MISSION
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Active Campaigns Table */}
+        {/* My Campaigns table — roster entries */}
         <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
-            <h2 className="font-mono text-xs text-foreground tracking-widest font-bold uppercase">ACTIVE CAMPAIGNS</h2>
+            <h2 className="font-mono text-xs text-foreground tracking-widest font-bold uppercase">MY CAMPAIGNS</h2>
           </div>
 
-          {/* Table Header */}
-          <div className="grid grid-cols-5 px-5 py-2 border-b border-border bg-muted/20">
-            {["CAMPAIGN NAME", "STATUS", "TIME REMAINING", "EARNINGS POTENTIAL", "ACTION"].map((h) => (
-              <p key={h} className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase">{h}</p>
-            ))}
-          </div>
-
-          {/* Rows */}
-          <div className="divide-y divide-border">
-            {mockActiveCampaigns.map((c) => (
-              <div key={c.id} className="grid grid-cols-5 items-center px-5 py-3.5">
-                <p className="font-mono text-xs text-foreground font-bold">{c.name}</p>
-                <div className="flex items-center gap-2">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDots[c.status]}`} />
-                  <span className={`font-mono text-[9px] tracking-widest ${statusColors[c.status]}`}>{c.status}</span>
-                </div>
-                <p className="font-mono text-xs text-foreground">{c.timeLeft}</p>
-                <p className="font-mono text-sm text-signal font-bold">{c.earnings}</p>
-                <button className="font-mono text-[9px] text-primary tracking-widest hover:underline text-left">
-                  VIEW →
-                </button>
+          {!myRoster || myRoster.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <p className="font-mono text-xs text-muted-foreground tracking-widest uppercase mb-1">NOT YET ON ANY CAMPAIGNS</p>
+              <p className="text-sm text-muted-foreground">Apply to open campaigns above to get started.</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-4 px-5 py-2 border-b border-border bg-muted/20">
+                {["CAMPAIGN", "STATUS", "DEADLINE", "ACTION"].map((h) => (
+                  <p key={h} className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase">{h}</p>
+                ))}
               </div>
-            ))}
-          </div>
+              <div className="divide-y divide-border">
+                {myRoster.map((entry: any) => (
+                  <div key={entry.id} className="grid grid-cols-4 items-center px-5 py-3.5">
+                    <p className="font-mono text-xs text-foreground font-bold uppercase truncate">{entry.campaign?.title ?? "—"}</p>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDots[entry.status] ?? "bg-muted-foreground"}`} />
+                      <span className={`font-mono text-[9px] tracking-widest uppercase ${statusColors[entry.status] ?? "text-muted-foreground"}`}>{entry.status}</span>
+                    </div>
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {entry.campaign?.deadline ? new Date(entry.campaign.deadline).toLocaleDateString() : "—"}
+                    </p>
+                    <button className="font-mono text-[9px] text-primary tracking-widest hover:underline text-left">VIEW →</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </AppLayout>

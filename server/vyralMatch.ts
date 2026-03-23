@@ -1,6 +1,7 @@
 import { invokeLLM } from "./_core/llm";
 import type { Campaign, CreatorProfile } from "../drizzle/schema";
 import type { InsertVyralMatchScore } from "../drizzle/schema";
+import { getSocialAccountsByCreator } from "./db";
 
 /**
  * VYRAL MATCH SCORING ALGORITHM
@@ -70,11 +71,23 @@ function calculateTierScore(tier: string): number {
 }
 
 /**
- * Calculate weighted Vyral Match score
- * Weights: Niche 40%, Engagement 35%, Tier 25%
+ * Calculate platform diversity bonus (0-10)
+ * Creators with 3+ platforms get a bonus
  */
-function calculateWeightedScore(nicheScore: number, engagementScore: number, tierScore: number): number {
-  return nicheScore * 0.4 + engagementScore * 0.35 + tierScore * 0.25;
+function calculatePlatformDiversityBonus(platformCount: number): number {
+  if (platformCount >= 5) return 10;
+  if (platformCount >= 4) return 7;
+  if (platformCount >= 3) return 5;
+  return 0;
+}
+
+/**
+ * Calculate weighted Vyral Match score
+ * Weights: Niche 40%, Engagement 35%, Tier 25%, plus platform diversity bonus
+ */
+function calculateWeightedScore(nicheScore: number, engagementScore: number, tierScore: number, platformBonus = 0): number {
+  const base = nicheScore * 0.4 + engagementScore * 0.35 + tierScore * 0.25;
+  return Math.min(100, base + platformBonus);
 }
 
 /**
@@ -87,7 +100,11 @@ export async function calculateVyralMatchScore(
   const nicheScore = calculateNicheScore(campaign.targetAudience || "", creator.niche);
   const engagementScore = calculateEngagementScore(Number(creator.engagementRate));
   const tierScore = calculateTierScore(creator.tier);
-  const totalScore = calculateWeightedScore(nicheScore, engagementScore, tierScore);
+
+  const socialAccounts = await getSocialAccountsByCreator(creator.id).catch(() => []);
+  const platformBonus = calculatePlatformDiversityBonus(socialAccounts.length);
+
+  const totalScore = calculateWeightedScore(nicheScore, engagementScore, tierScore, platformBonus);
 
   let aiEnhancedScore: number | null = null;
   let matchReason: string | null = null;

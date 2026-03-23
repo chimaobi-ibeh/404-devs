@@ -58,7 +58,7 @@ const advertiserRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      return db.createAdvertiserProfile({
+      const profile = await db.createAdvertiserProfile({
         userId: ctx.user.id,
         companyName: input.companyName,
         industry: input.industry || null,
@@ -66,6 +66,27 @@ const advertiserRouter = router({
         website: input.website || null,
         logoUrl: input.logoUrl || null,
         verificationStatus: "pending",
+      });
+      // Update user role to advertiser (unless they're admin)
+      if (ctx.user.role !== "admin") {
+        await db.upsertUser({ openId: ctx.user.openId, role: "advertiser", lastSignedIn: ctx.user.lastSignedIn });
+      }
+      return profile;
+    }),
+
+  updateProfile: protectedProcedure
+    .input(z.object({
+      companyName: z.string().min(1).optional(),
+      industry: z.string().optional(),
+      website: z.string().optional(),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return db.updateAdvertiserProfile(ctx.user.id, {
+        companyName: input.companyName,
+        industry: input.industry ?? null,
+        website: input.website ?? null,
+        description: input.description ?? null,
       });
     }),
 
@@ -90,6 +111,12 @@ const advertiserRouter = router({
         requiredHashtags: z.array(z.string()).optional(),
         moodBoardUrl: z.string().optional(),
         referenceVideoUrl: z.string().optional(),
+        deliverables: z.string().optional(),
+        contentDos: z.string().optional(),
+        contentDonts: z.string().optional(),
+        postingWindowStart: z.string().optional(),
+        postingWindowEnd: z.string().optional(),
+        targetPlatforms: z.array(z.string()).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -109,8 +136,20 @@ const advertiserRouter = router({
         requiredHashtags: input.requiredHashtags ? JSON.stringify(input.requiredHashtags) : null,
         moodBoardUrl: input.moodBoardUrl || null,
         referenceVideoUrl: input.referenceVideoUrl || null,
+        deliverables: input.deliverables || null,
+        contentDos: input.contentDos || null,
+        contentDonts: input.contentDonts || null,
+        postingWindowStart: input.postingWindowStart ? new Date(input.postingWindowStart) : null,
+        postingWindowEnd: input.postingWindowEnd ? new Date(input.postingWindowEnd) : null,
+        targetPlatforms: input.targetPlatforms ? JSON.stringify(input.targetPlatforms) : null,
         status: "draft",
       });
+    }),
+
+  getCampaignAnalytics: protectedProcedure
+    .input(z.object({ campaignId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      return db.getCampaignAnalytics(input.campaignId);
     }),
 
   getCampaign: protectedProcedure
@@ -217,6 +256,17 @@ const advertiserRouter = router({
       const totalAmount = Number(campaign.budget) + Number(campaign.platformFee);
       return initializeStripePayment(totalAmount, campaign.id);
     }),
+
+  launchCampaign: protectedProcedure
+    .input(z.object({ campaignId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const campaign = await db.getCampaign(input.campaignId);
+      if (!campaign) throw new TRPCError({ code: "NOT_FOUND" });
+      if (campaign.advertiserId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (campaign.status !== "draft") throw new TRPCError({ code: "BAD_REQUEST", message: "Campaign is not a draft" });
+      await db.updateCampaignStatus(input.campaignId, "active");
+      return { success: true };
+    }),
 });
 
 // ============================================================================
@@ -234,24 +284,65 @@ const creatorRouter = router({
         displayName: z.string().min(1),
         bio: z.string().optional(),
         profileImageUrl: z.string().optional(),
-        niche: z.string().min(1),
+        niche: z.string().optional(),
         totalFollowers: z.number().default(0),
         engagementRate: z.number().default(0),
+        fullName: z.string().optional(),
+        country: z.string().optional(),
+        dateOfBirth: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const tier = calculateCreatorTier(input.totalFollowers);
-      return db.createCreatorProfile({
+      const profile = await db.createCreatorProfile({
         userId: ctx.user.id,
         displayName: input.displayName,
         bio: input.bio || null,
         profileImageUrl: input.profileImageUrl || null,
-        niche: input.niche,
+        niche: input.niche || "general",
         totalFollowers: input.totalFollowers,
         engagementRate: String(input.engagementRate),
         tier,
         vyralScore: "0",
         verificationStatus: "pending",
+        fullName: input.fullName || null,
+        country: input.country || null,
+        dateOfBirth: input.dateOfBirth || null,
+      });
+      // Update user role to creator (unless they're admin)
+      if (ctx.user.role !== "admin") {
+        await db.upsertUser({ openId: ctx.user.openId, role: "creator", lastSignedIn: ctx.user.lastSignedIn });
+      }
+      return profile;
+    }),
+
+  updateProfile: protectedProcedure
+    .input(z.object({
+      displayName: z.string().min(1).optional(),
+      bio: z.string().optional(),
+      niche: z.string().optional(),
+      totalFollowers: z.number().optional(),
+      fullName: z.string().optional(),
+      dateOfBirth: z.string().optional(),
+      country: z.string().optional(),
+      phoneNumber: z.string().optional(),
+      contentCategories: z.array(z.string()).optional(),
+      contentLanguages: z.array(z.string()).optional(),
+      profileImageUrl: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return db.updateCreatorProfile(ctx.user.id, {
+        displayName: input.displayName,
+        bio: input.bio ?? null,
+        niche: input.niche,
+        totalFollowers: input.totalFollowers,
+        fullName: input.fullName ?? null,
+        dateOfBirth: input.dateOfBirth ?? null,
+        country: input.country ?? null,
+        phoneNumber: input.phoneNumber ?? null,
+        contentCategories: input.contentCategories ? JSON.stringify(input.contentCategories) : null,
+        contentLanguages: input.contentLanguages ? JSON.stringify(input.contentLanguages) : null,
+        profileImageUrl: input.profileImageUrl ?? null,
       });
     }),
 
@@ -263,6 +354,7 @@ const creatorRouter = router({
         maxFollowers: z.number().optional(),
         minEngagement: z.number().optional(),
         tier: z.string().optional(),
+        platform: z.string().optional(),
         limit: z.number().default(20),
         offset: z.number().default(0),
       })
@@ -506,6 +598,86 @@ const creatorRouter = router({
     await db.markAllNotificationsRead(ctx.user.id);
     return { success: true };
   }),
+
+  getMyRosterEntries: protectedProcedure.query(async ({ ctx }) => {
+    const creatorProfile = await db.getCreatorProfile(ctx.user.id);
+    if (!creatorProfile) return [];
+    return db.getCreatorRosterEntries(creatorProfile.id);
+  }),
+
+  getSocialAccounts: protectedProcedure.query(async ({ ctx }) => {
+    const profile = await db.getCreatorProfile(ctx.user.id);
+    if (!profile) return [];
+    return db.getSocialAccountsByCreator(profile.id);
+  }),
+
+  upsertSocialAccount: protectedProcedure
+    .input(z.object({
+      platform: z.enum(["instagram", "tiktok", "youtube", "x", "twitch"]),
+      username: z.string().min(1),
+      followers: z.number().min(0),
+      engagementRate: z.number().min(0).max(100),
+      profileUrl: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const profile = await db.getCreatorProfile(ctx.user.id);
+      if (!profile) throw new TRPCError({ code: "BAD_REQUEST", message: "Creator profile not found" });
+      return db.upsertSocialAccount({ creatorId: profile.id, ...input });
+    }),
+
+  deleteSocialAccount: protectedProcedure
+    .input(z.object({ accountId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const profile = await db.getCreatorProfile(ctx.user.id);
+      if (!profile) throw new TRPCError({ code: "FORBIDDEN" });
+      await db.deleteSocialAccount(input.accountId);
+      return { success: true };
+    }),
+
+  getPortfolio: protectedProcedure.query(async ({ ctx }) => {
+    const profile = await db.getCreatorProfile(ctx.user.id);
+    if (!profile) return [];
+    return db.getPortfolioItems(profile.id);
+  }),
+
+  addPortfolioItem: protectedProcedure
+    .input(z.object({
+      brand: z.string().optional(),
+      campaignTitle: z.string().min(1),
+      platform: z.enum(["instagram", "tiktok", "youtube", "x", "twitch"]),
+      contentUrl: z.string().optional(),
+      thumbnailUrl: z.string().optional(),
+      metrics: z.object({
+        impressions: z.number().optional(),
+        reach: z.number().optional(),
+        engagement: z.number().optional(),
+        views: z.number().optional(),
+      }).optional(),
+      completedAt: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const profile = await db.getCreatorProfile(ctx.user.id);
+      if (!profile) throw new TRPCError({ code: "BAD_REQUEST" });
+      return db.addPortfolioItem({
+        creatorId: profile.id,
+        brand: input.brand,
+        campaignTitle: input.campaignTitle,
+        platform: input.platform,
+        contentUrl: input.contentUrl,
+        thumbnailUrl: input.thumbnailUrl,
+        metrics: input.metrics ? JSON.stringify(input.metrics) : null,
+        completedAt: input.completedAt ? new Date(input.completedAt) : null,
+      });
+    }),
+
+  deletePortfolioItem: protectedProcedure
+    .input(z.object({ itemId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const profile = await db.getCreatorProfile(ctx.user.id);
+      if (!profile) throw new TRPCError({ code: "FORBIDDEN" });
+      await db.deletePortfolioItem(input.itemId, profile.id);
+      return { success: true };
+    }),
 });
 
 // ============================================================================
@@ -560,6 +732,55 @@ const vyralMatchRouter = router({
       // (full implementation requires a getVyralMatchScoreById query)
       return { success: true };
     }),
+});
+
+// ============================================================================
+// MESSAGING ROUTER
+// ============================================================================
+
+const messagingRouter = router({
+  getConversations: protectedProcedure.query(async ({ ctx }) => {
+    return db.getConversationsByUser(ctx.user.id);
+  }),
+
+  getMessages: protectedProcedure
+    .input(z.object({ conversationId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const convo = await db.getConversation(input.conversationId);
+      if (!convo) throw new TRPCError({ code: "NOT_FOUND" });
+      if (convo.advertiserId !== ctx.user.id && convo.creatorId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      await db.markConversationRead(input.conversationId, ctx.user.id);
+      return db.getMessages(input.conversationId);
+    }),
+
+  sendMessage: protectedProcedure
+    .input(z.object({ conversationId: z.number(), content: z.string().min(1).max(2000) }))
+    .mutation(async ({ ctx, input }) => {
+      const convo = await db.getConversation(input.conversationId);
+      if (!convo) throw new TRPCError({ code: "NOT_FOUND" });
+      if (convo.advertiserId !== ctx.user.id && convo.creatorId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      return db.sendMessage(input.conversationId, ctx.user.id, input.content);
+    }),
+
+  startConversation: protectedProcedure
+    .input(z.object({ campaignId: z.number(), otherUserId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const campaign = await db.getCampaign(input.campaignId);
+      if (!campaign) throw new TRPCError({ code: "NOT_FOUND" });
+      // Determine who is advertiser and who is creator
+      const isAdvertiser = campaign.advertiserId === ctx.user.id;
+      const advertiserId = isAdvertiser ? ctx.user.id : input.otherUserId;
+      const creatorId = isAdvertiser ? input.otherUserId : ctx.user.id;
+      return db.getOrCreateConversation(input.campaignId, advertiserId, creatorId);
+    }),
+
+  getUnreadCount: protectedProcedure.query(async ({ ctx }) => {
+    return db.getUnreadMessageCount(ctx.user.id);
+  }),
 });
 
 // ============================================================================
@@ -618,6 +839,31 @@ const adminRouter = router({
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
       return db.getDisputesList(input.limit, input.offset);
     }),
+
+  getPendingCreators: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+    return db.getPendingCreators(50);
+  }),
+
+  resolveDispute: protectedProcedure
+    .input(z.object({
+      disputeId: z.number(),
+      resolution: z.string().min(1),
+      status: z.enum(["resolved", "closed"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      return db.resolveDispute(input.disputeId, input.resolution, input.status, ctx.user.id);
+    }),
+
+  verifySocialAccount: protectedProcedure
+    .input(z.object({ accountId: z.number(), verified: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const status = input.verified ? "verified" : "rejected";
+      await db.updateSocialAccountVerification(input.accountId, status);
+      return { success: true };
+    }),
 });
 
 // ============================================================================
@@ -637,6 +883,7 @@ export const appRouter = router({
   advertiser: advertiserRouter,
   creator: creatorRouter,
   vyralMatch: vyralMatchRouter,
+  messaging: messagingRouter,
   monitoring: monitoringRouter,
   admin: adminRouter,
 });

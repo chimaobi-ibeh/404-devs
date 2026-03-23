@@ -12,8 +12,7 @@ export const ENV = {
   supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET ?? "",
   adminEmail: process.env.ADMIN_EMAIL ?? "",
 
-  // Legacy Manus fields kept so existing code that imports ENV doesn't break
-  oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
+  // Optional AI/integrations — features degrade gracefully when not set
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
 };

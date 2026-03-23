@@ -5,35 +5,29 @@ import { AlertTriangle, Activity, Clock } from "lucide-react";
 
 type TabKey = "SYSTEM HEALTH" | "DISPUTES" | "VERIFICATIONS";
 
-const flaggedContent = [
-  { id: 1, type: "IP_VIOLATION", title: "Unauthorized brand usage detected in post #4821", severity: "CRITICAL" },
-  { id: 2, type: "SPAM_REPORT", title: "Duplicate content detected across 3 accounts", severity: "CRITICAL" },
-  { id: 3, type: "IP_VIOLATION", title: "Unlicensed audio in campaign VY-092 content", severity: "CRITICAL" },
-];
-
-const pendingApplications = [
-  { id: 1, name: "PULSE CREATOR", score: 87.4, label: "AI_MATCH" },
-  { id: 2, name: "DRIFT_NOVA", score: 92.1, label: "AI_MATCH" },
-  { id: 3, name: "ECHO STREAM", score: 78.3, label: "AI_MATCH" },
-];
-
-const telemetry = [
-  { label: "CPU_LATENCY", value: 34, color: "bg-signal" },
-  { label: "MEMORY_LOAD", value: 68, color: "bg-gold" },
-  { label: "TRAFFIC_INLET", value: 82, color: "bg-primary" },
-];
-
 export default function AdminPanel() {
   const { data: analytics } = trpc.admin.getDashboard.useQuery();
-  const { data: disputes } = trpc.admin.getDisputes.useQuery({ limit: 50, offset: 0 });
+  const { data: disputes, refetch: refetchDisputes } = trpc.admin.getDisputes.useQuery({ limit: 50, offset: 0 });
+  const { data: pendingCreators, refetch: refetchPending } = trpc.admin.getPendingCreators.useQuery();
   const [activeTab, setActiveTab] = useState<TabKey>("SYSTEM HEALTH");
+  const [selectedDisputeId, setSelectedDisputeId] = useState<number | null>(null);
+  const [resolutionText, setResolutionText] = useState("");
 
   const tabs: TabKey[] = ["SYSTEM HEALTH", "DISPUTES", "VERIFICATIONS"];
 
   const stats = (analytics?.stats as any) ?? {};
 
+  const verifyCreator = trpc.admin.verifyCreator.useMutation({ onSuccess: () => refetchPending() });
+  const resolveDispute = trpc.admin.resolveDispute.useMutation({
+    onSuccess: () => {
+      setSelectedDisputeId(null);
+      setResolutionText("");
+      refetchDisputes();
+    },
+  });
+
   return (
-    <AppLayout activeNav="ANALYTICS" activeSidebar="Insights">
+    <AppLayout>
       <div className="p-8">
         {/* Header */}
         <div className="mb-6">
@@ -56,7 +50,7 @@ export default function AdminPanel() {
             <div>
               <p className="font-mono text-[8px] text-muted-foreground tracking-widest">TOTAL VOLUME</p>
               <p className="font-mono text-lg text-foreground font-bold">
-                ${((stats.platformRevenue || 14200000) / 1000000).toFixed(1)}M
+                ${((stats.platformRevenue ?? 0) / 1000000).toFixed(1)}M
               </p>
             </div>
           </div>
@@ -66,7 +60,7 @@ export default function AdminPanel() {
             <div>
               <p className="font-mono text-[8px] text-muted-foreground tracking-widest">ACTIVE DISPUTES</p>
               <div className="flex items-center gap-2">
-                <p className="font-mono text-lg text-foreground font-bold">{disputes?.length ?? 24}</p>
+                <p className="font-mono text-lg text-foreground font-bold">{disputes?.length ?? 0}</p>
                 <span className="font-mono text-[7px] text-orange-400 border border-orange-400/40 rounded px-1 py-0.5 tracking-widest">
                   Urgent
                 </span>
@@ -79,7 +73,7 @@ export default function AdminPanel() {
             <div>
               <p className="font-mono text-[8px] text-muted-foreground tracking-widest">VERIFICATION QUEUE</p>
               <div className="flex items-center gap-2">
-                <p className="font-mono text-lg text-foreground font-bold">142</p>
+                <p className="font-mono text-lg text-foreground font-bold">{pendingCreators?.length ?? 0}</p>
                 <span className="font-mono text-[7px] text-muted-foreground border border-border rounded px-1 py-0.5 tracking-widest">
                   Avg: 4h
                 </span>
@@ -115,61 +109,26 @@ export default function AdminPanel() {
                 <div className="bg-card border border-border rounded-lg overflow-hidden">
                   <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                     <h2 className="font-mono text-xs text-foreground tracking-widest font-bold">FLAGGED_CONTENT_LOG</h2>
-                    <span className="font-mono text-[8px] text-primary border border-primary/40 rounded px-2 py-0.5 tracking-widest">
-                      {flaggedContent.length} CRITICAL ALERTS
-                    </span>
                   </div>
-                  <div className="divide-y divide-border">
-                    {flaggedContent.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <span className={`font-mono text-[7px] border rounded px-1.5 py-0.5 tracking-widest shrink-0 ${
-                            item.type === "IP_VIOLATION"
-                              ? "text-primary border-primary/40"
-                              : "text-gold border-gold/40"
-                          }`}>
-                            {item.type}
-                          </span>
-                          <p className="font-mono text-[10px] text-foreground">{item.title}</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button className="font-mono text-[8px] text-muted-foreground border border-border rounded px-2 py-1 hover:border-foreground hover:text-foreground transition-colors tracking-widest">
-                            DETAILS
-                          </button>
-                          <button className="font-mono text-[8px] text-signal border border-signal/40 rounded px-2 py-1 hover:bg-signal/10 transition-colors tracking-widest">
-                            RESOLVE
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="px-5 py-8 text-center">
+                    <p className="font-mono text-xs text-muted-foreground">No flagged content at this time.</p>
                   </div>
                 </div>
 
-                {/* Pending Applications */}
+                {/* Platform Stats */}
                 <div className="bg-card border border-border rounded-lg overflow-hidden">
                   <div className="px-5 py-4 border-b border-border">
-                    <h2 className="font-mono text-xs text-foreground tracking-widest font-bold">PENDING_APPLICATIONS</h2>
+                    <h2 className="font-mono text-xs text-foreground tracking-widest font-bold">PLATFORM_STATS</h2>
                   </div>
                   <div className="divide-y divide-border">
-                    {pendingApplications.map((app) => (
-                      <div key={app.id} className="flex items-center justify-between px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center">
-                            <span className="font-mono text-[8px] text-muted-foreground">{app.name.charAt(0)}</span>
-                          </div>
-                          <div>
-                            <p className="font-mono text-xs text-foreground font-bold">{app.name}</p>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-[7px] text-signal border border-signal/40 rounded px-1 py-0.5 tracking-widest">
-                                {app.label}
-                              </span>
-                              <span className="font-mono text-[8px] text-muted-foreground">Score: {app.score}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <button className="font-mono text-[8px] text-foreground border border-border rounded px-3 py-1.5 hover:border-signal hover:text-signal transition-colors tracking-widest">
-                          VERIFY
-                        </button>
+                    {[
+                      { label: "TOTAL USERS", value: stats.totalUsers ?? "—", color: "text-foreground" },
+                      { label: "ACTIVE CAMPAIGNS", value: stats.activeCampaigns ?? "—", color: "text-signal" },
+                      { label: "PLATFORM REVENUE", value: `$${(stats.platformRevenue ?? 0).toFixed(2)}`, color: "text-gold" },
+                    ].map((item) => (
+                      <div key={item.label} className="flex items-center justify-between px-5 py-3.5">
+                        <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">{item.label}</p>
+                        <p className={`font-mono text-sm font-bold ${item.color}`}>{item.value}</p>
                       </div>
                     ))}
                   </div>
@@ -193,9 +152,57 @@ export default function AdminPanel() {
                           </span>
                         </div>
                         <p className="font-mono text-[9px] text-muted-foreground mb-3">{dispute.reason}</p>
-                        <button className="font-mono text-[8px] text-foreground border border-border rounded px-3 py-1.5 hover:border-foreground transition-colors tracking-widest">
-                          REVIEW
+                        <button
+                          onClick={() =>
+                            setSelectedDisputeId(
+                              selectedDisputeId === dispute.id ? null : dispute.id
+                            )
+                          }
+                          className="font-mono text-[8px] text-foreground border border-border rounded px-3 py-1.5 hover:border-foreground transition-colors tracking-widest"
+                        >
+                          {selectedDisputeId === dispute.id ? "COLLAPSE" : "REVIEW"}
                         </button>
+
+                        {selectedDisputeId === dispute.id && (
+                          <div className="mt-3 p-3 bg-muted/20 rounded border border-border space-y-3">
+                            <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">Resolution</p>
+                            <textarea
+                              value={resolutionText}
+                              onChange={(e) => setResolutionText(e.target.value)}
+                              placeholder="Enter resolution details…"
+                              rows={3}
+                              className="w-full bg-background border border-border rounded px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50 resize-none"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() =>
+                                  resolveDispute.mutate({
+                                    disputeId: dispute.id,
+                                    resolution: resolutionText,
+                                    status: "resolved",
+                                  })
+                                }
+                                disabled={resolveDispute.isPending}
+                                className="font-mono text-[8px] text-signal border border-signal/40 rounded px-3 py-1.5 hover:bg-signal/10 transition-colors tracking-widest disabled:opacity-40"
+                              >
+                                RESOLVE
+                              </button>
+                              <button
+                                onClick={() =>
+                                  resolveDispute.mutate({
+                                    disputeId: dispute.id,
+                                    resolution: resolutionText,
+                                    status: "closed",
+                                  })
+                                }
+                                disabled={resolveDispute.isPending}
+                                className="font-mono text-[8px] text-muted-foreground border border-border rounded px-3 py-1.5 hover:border-foreground hover:text-foreground transition-colors tracking-widest disabled:opacity-40"
+                              >
+                                CLOSE
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -208,9 +215,44 @@ export default function AdminPanel() {
             )}
 
             {activeTab === "VERIFICATIONS" && (
-              <div className="bg-card border border-border rounded-lg p-6">
-                <h2 className="font-mono text-xs text-foreground tracking-widest font-bold mb-4">IDENTITY VERIFICATION</h2>
-                <p className="font-mono text-xs text-muted-foreground">Verification queue loaded from PENDING_APPLICATIONS above.</p>
+              <div className="bg-card border border-border rounded-lg overflow-hidden">
+                <div className="px-5 py-4 border-b border-border">
+                  <h2 className="font-mono text-xs text-foreground tracking-widest font-bold">IDENTITY VERIFICATION</h2>
+                </div>
+                {pendingCreators && pendingCreators.length > 0 ? (
+                  <div className="divide-y divide-border">
+                    {pendingCreators.map((creator: any) => (
+                      <div key={creator.id} className="flex items-center justify-between px-5 py-4">
+                        <div>
+                          <p className="font-mono text-xs text-foreground font-bold">{creator.displayName}</p>
+                          <p className="font-mono text-[9px] text-muted-foreground">
+                            {creator.niche} · {creator.tier} · {creator.totalFollowers.toLocaleString()} followers
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => verifyCreator.mutate({ creatorId: creator.id, verified: true })}
+                            disabled={verifyCreator.isPending}
+                            className="font-mono text-[8px] text-signal border border-signal/40 rounded px-2 py-1 hover:bg-signal/10 transition-colors tracking-widest disabled:opacity-40"
+                          >
+                            APPROVE
+                          </button>
+                          <button
+                            onClick={() => verifyCreator.mutate({ creatorId: creator.id, verified: false })}
+                            disabled={verifyCreator.isPending}
+                            className="font-mono text-[8px] text-primary border border-primary/40 rounded px-2 py-1 hover:bg-primary/10 transition-colors tracking-widest disabled:opacity-40"
+                          >
+                            REJECT
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-5 py-8 text-center">
+                    <p className="font-mono text-xs text-muted-foreground">NO PENDING VERIFICATIONS</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -224,16 +266,21 @@ export default function AdminPanel() {
               </div>
 
               <div className="space-y-4">
-                {telemetry.map((item) => (
+                {/* Real stats as relative bars */}
+                {[
+                  { label: "TOTAL USERS", value: stats.totalUsers ?? 0, max: Math.max(stats.totalUsers ?? 1, 1), color: "bg-primary", display: stats.totalUsers ?? "—" },
+                  { label: "ACTIVE CAMPAIGNS", value: stats.activeCampaigns ?? 0, max: Math.max(stats.activeCampaigns ?? 1, 1), color: "bg-signal", display: stats.activeCampaigns ?? "—" },
+                  { label: "PENDING VERIF.", value: pendingCreators?.length ?? 0, max: Math.max(pendingCreators?.length ?? 1, 1), color: "bg-gold", display: pendingCreators?.length ?? "—" },
+                ].map((item) => (
                   <div key={item.label}>
                     <div className="flex items-center justify-between mb-1.5">
                       <p className="font-mono text-[8px] text-muted-foreground tracking-widest">{item.label}</p>
-                      <p className="font-mono text-[8px] text-foreground">{item.value}%</p>
+                      <p className="font-mono text-[8px] text-foreground">{item.display}</p>
                     </div>
                     <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${item.color}`}
-                        style={{ width: `${item.value}%` }}
+                        style={{ width: item.max > 0 ? `${Math.min((item.value / item.max) * 100, 100)}%` : "0%" }}
                       />
                     </div>
                   </div>

@@ -69,6 +69,12 @@ export const creatorProfiles = pgTable("creator_profiles", {
   tier: varchar("tier", { length: 20 }).notNull(), // nano | micro | mid | macro | mega
   totalFollowers: integer("totalFollowers").notNull().default(0),
   engagementRate: numeric("engagementRate", { precision: 5, scale: 2 }).notNull().default("0"),
+  fullName: varchar("fullName", { length: 255 }),
+  dateOfBirth: varchar("dateOfBirth", { length: 20 }),
+  country: varchar("country", { length: 100 }),
+  phoneNumber: varchar("phoneNumber", { length: 50 }),
+  contentCategories: jsonb("contentCategories"),
+  contentLanguages: jsonb("contentLanguages"),
   vyralScore: numeric("vyralScore", { precision: 5, scale: 2 }).notNull().default("0"),
   verificationStatus: varchar("verificationStatus", { length: 20 }).notNull().default("pending"),
   stripeConnectId: varchar("stripeConnectId", { length: 255 }),
@@ -121,6 +127,12 @@ export const campaigns = pgTable("campaigns", {
   requiredHashtags: jsonb("requiredHashtags"),
   moodBoardUrl: varchar("moodBoardUrl", { length: 512 }),
   referenceVideoUrl: varchar("referenceVideoUrl", { length: 512 }),
+  deliverables: text("deliverables"),
+  contentDos: text("contentDos"),
+  contentDonts: text("contentDonts"),
+  postingWindowStart: timestamp("postingWindowStart"),
+  postingWindowEnd: timestamp("postingWindowEnd"),
+  targetPlatforms: jsonb("targetPlatforms"),
   status: varchar("status", { length: 20 }).notNull().default("draft"), // draft | active | completed | cancelled
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdateFn(() => new Date()),
@@ -416,3 +428,49 @@ export const notifications = pgTable("notifications", {
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
+
+// ============================================================================
+// PORTFOLIO ITEMS
+// ============================================================================
+
+export const portfolioItems = pgTable("portfolio_items", {
+  id: serial("id").primaryKey(),
+  creatorId: integer("creatorId").notNull(),
+  brand: varchar("brand", { length: 255 }),
+  campaignTitle: varchar("campaignTitle", { length: 255 }).notNull(),
+  platform: varchar("platform", { length: 30 }).notNull(),
+  contentUrl: varchar("contentUrl", { length: 512 }),
+  thumbnailUrl: varchar("thumbnailUrl", { length: 512 }),
+  metrics: jsonb("metrics"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PortfolioItem = typeof portfolioItems.$inferSelect;
+export type InsertPortfolioItem = typeof portfolioItems.$inferInsert;
+
+// ============================================================================
+// CONVERSATIONS & MESSAGES
+// ============================================================================
+
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaignId").notNull(),
+  advertiserId: integer("advertiserId").notNull(),   // users.id
+  creatorId: integer("creatorId").notNull(),         // users.id
+  lastMessageAt: timestamp("lastMessageAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = typeof conversations.$inferInsert;
+
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversationId").notNull(),
+  senderId: integer("senderId").notNull(),           // users.id
+  content: text("content").notNull(),
+  isRead: boolean("isRead").notNull().default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = typeof messages.$inferInsert;

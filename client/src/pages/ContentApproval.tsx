@@ -36,7 +36,7 @@ export default function ContentApproval() {
   };
 
   return (
-    <AppLayout activeNav="CAMPAIGNS">
+    <AppLayout>
       <div className="p-8">
         {/* Header */}
         <div className="mb-6">

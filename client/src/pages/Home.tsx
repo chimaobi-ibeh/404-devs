@@ -61,9 +61,11 @@ function Counter({
 function Nav({
   isAuthenticated,
   onGetStarted,
+  onLogout,
 }: {
   isAuthenticated: boolean;
   onGetStarted: () => void;
+  onLogout: () => void;
 }) {
   const [, setLocation] = useLocation();
   const { theme, toggleTheme } = useTheme();
@@ -104,6 +106,7 @@ function Nav({
             <>
               <Button variant="ghost" size="sm" className="text-xs tracking-widest uppercase" onClick={() => setLocation("/brand/dashboard")}>Dashboard</Button>
               <Button size="sm" className="text-xs tracking-widest uppercase bg-primary hover:bg-primary/90" onClick={() => setLocation("/creator/dashboard")}>Creator Hub</Button>
+              <Button variant="ghost" size="sm" className="text-xs tracking-widest uppercase text-muted-foreground hover:text-destructive" onClick={onLogout}>Sign Out</Button>
             </>
           ) : (
             <>
@@ -119,7 +122,7 @@ function Nav({
 
 /* ─── Page ───────────────────────────────────────────────────────────────── */
 export default function Home() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [, setLocation] = useLocation();
@@ -132,9 +135,14 @@ export default function Home() {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    window.location.href = "/";
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Nav isAuthenticated={isAuthenticated} onGetStarted={handleGetStarted} />
+      <Nav isAuthenticated={isAuthenticated} onGetStarted={handleGetStarted} onLogout={handleLogout} />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="relative flex flex-col items-center text-center px-6 pt-28 pb-20 overflow-hidden">

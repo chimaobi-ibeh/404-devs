@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, desc, asc, inArray, like, isNull, lt, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, inArray, like, isNull, lt, sql, or, not } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
@@ -21,6 +21,9 @@ import {
   adminLogs,
   campaignAnalytics,
   notifications,
+  portfolioItems,
+  conversations,
+  messages,
 } from "../drizzle/schema";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -111,6 +114,13 @@ export async function createAdvertiserProfile(data: typeof advertiserProfiles.$i
   return result[0];
 }
 
+export async function updateAdvertiserProfile(userId: number, data: Partial<typeof advertiserProfiles.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.update(advertiserProfiles).set({ ...data, updatedAt: new Date() } as any).where(eq(advertiserProfiles.userId, userId)).returning();
+  return result[0];
+}
+
 // ============================================================================
 // CREATOR PROFILES
 // ============================================================================
@@ -136,12 +146,20 @@ export async function createCreatorProfile(data: typeof creatorProfiles.$inferIn
   return result[0];
 }
 
+export async function updateCreatorProfile(userId: number, data: Partial<typeof creatorProfiles.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.update(creatorProfiles).set({ ...data, updatedAt: new Date() } as any).where(eq(creatorProfiles.userId, userId)).returning();
+  return result[0];
+}
+
 export async function searchCreators(filters: {
   niche?: string;
   minFollowers?: number;
   maxFollowers?: number;
   minEngagement?: number | string;
   tier?: string;
+  platform?: string;
   limit?: number;
   offset?: number;
 }) {
@@ -154,6 +172,16 @@ export async function searchCreators(filters: {
   if (filters.maxFollowers) conditions.push(lte(creatorProfiles.totalFollowers, filters.maxFollowers));
   if (filters.minEngagement) conditions.push(gte(creatorProfiles.engagementRate, String(filters.minEngagement)));
   if (filters.tier) conditions.push(eq(creatorProfiles.tier, filters.tier));
+
+  if (filters.platform) {
+    const platformCreatorIds = await db
+      .select({ creatorId: socialMediaAccounts.creatorId })
+      .from(socialMediaAccounts)
+      .where(eq(socialMediaAccounts.platform, filters.platform));
+    const ids = platformCreatorIds.map((r) => r.creatorId);
+    if (ids.length === 0) return [];
+    conditions.push(inArray(creatorProfiles.id, ids));
+  }
 
   return db
     .select()
@@ -190,6 +218,13 @@ export async function createCampaign(data: typeof campaigns.$inferInsert) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(campaigns).values(data).returning();
+  return result[0];
+}
+
+export async function updateCampaign(campaignId: number, data: Partial<typeof campaigns.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.update(campaigns).set({ ...data, updatedAt: new Date() } as any).where(eq(campaigns.id, campaignId)).returning();
   return result[0];
 }
 
@@ -244,6 +279,18 @@ export async function updateRosterStatus(rosterId: number, status: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(campaignRosters).set({ status }).where(eq(campaignRosters.id, rosterId));
+}
+
+export async function getCreatorRosterEntries(creatorProfileId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ id: campaignRosters.id, status: campaignRosters.status, creatorFee: campaignRosters.creatorFee,
+      campaign: { id: campaigns.id, title: campaigns.title, deadline: campaigns.deadline } })
+    .from(campaignRosters)
+    .innerJoin(campaigns, eq(campaignRosters.campaignId, campaigns.id))
+    .where(eq(campaignRosters.creatorId, creatorProfileId))
+    .orderBy(campaignRosters.createdAt);
 }
 
 export async function getNoShowRosterEntries() {
@@ -680,4 +727,240 @@ export async function markAllNotificationsRead(userId: number) {
     .update(notifications)
     .set({ isRead: true })
     .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+}
+
+// ============================================================================
+// SOCIAL ACCOUNTS
+// ============================================================================
+
+export async function getSocialAccountsByCreator(creatorId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(socialMediaAccounts).where(eq(socialMediaAccounts.creatorId, creatorId));
+}
+
+export async function upsertSocialAccount(data: {
+  creatorId: number;
+  platform: string;
+  username: string;
+  followers: number;
+  engagementRate: number;
+  profileUrl?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await db
+    .select()
+    .from(socialMediaAccounts)
+    .where(and(eq(socialMediaAccounts.creatorId, data.creatorId), eq(socialMediaAccounts.platform, data.platform)))
+    .limit(1);
+  if (existing.length > 0) {
+    return db
+      .update(socialMediaAccounts)
+      .set({ username: data.username, followers: data.followers, engagementRate: String(data.engagementRate), profileUrl: data.profileUrl })
+      .where(eq(socialMediaAccounts.id, existing[0].id))
+      .returning();
+  } else {
+    return db
+      .insert(socialMediaAccounts)
+      .values({ ...data, engagementRate: String(data.engagementRate) })
+      .returning();
+  }
+}
+
+export async function deleteSocialAccount(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(socialMediaAccounts).where(eq(socialMediaAccounts.id, id));
+}
+
+// ============================================================================
+// PORTFOLIO ITEMS
+// ============================================================================
+
+export async function getPortfolioItems(creatorId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(portfolioItems).where(eq(portfolioItems.creatorId, creatorId)).orderBy(desc(portfolioItems.createdAt));
+}
+
+export async function addPortfolioItem(data: typeof portfolioItems.$inferInsert) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(portfolioItems).values(data).returning();
+  return result[0];
+}
+
+export async function deletePortfolioItem(id: number, creatorId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(portfolioItems).where(and(eq(portfolioItems.id, id), eq(portfolioItems.creatorId, creatorId)));
+}
+
+// ============================================================================
+// CONVERSATIONS & MESSAGES
+// ============================================================================
+
+export async function getOrCreateConversation(campaignId: number, advertiserId: number, creatorId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await db.select().from(conversations)
+    .where(and(eq(conversations.campaignId, campaignId), eq(conversations.creatorId, creatorId)))
+    .limit(1);
+  if (existing.length > 0) return existing[0];
+  const result = await db.insert(conversations).values({ campaignId, advertiserId, creatorId }).returning();
+  return result[0];
+}
+
+export async function getConversationsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(conversations)
+    .where(or(eq(conversations.advertiserId, userId), eq(conversations.creatorId, userId)))
+    .orderBy(desc(conversations.lastMessageAt));
+}
+
+export async function getConversation(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(conversations).where(eq(conversations.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getMessages(conversationId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.createdAt);
+}
+
+export async function sendMessage(conversationId: number, senderId: number, content: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [msg] = await db.insert(messages).values({ conversationId, senderId, content }).returning();
+  await db.update(conversations).set({ lastMessageAt: new Date() }).where(eq(conversations.id, conversationId));
+  return msg;
+}
+
+export async function markConversationRead(conversationId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(messages)
+    .set({ isRead: true })
+    .where(and(eq(messages.conversationId, conversationId), not(eq(messages.senderId, userId))));
+}
+
+export async function getUnreadMessageCount(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  // Get conversations for this user
+  const convs = await db.select({ id: conversations.id })
+    .from(conversations)
+    .where(or(eq(conversations.advertiserId, userId), eq(conversations.creatorId, userId)));
+  if (convs.length === 0) return 0;
+  const [result] = await db.select({ count: sql<number>`count(*)` })
+    .from(messages)
+    .where(and(
+      inArray(messages.conversationId, convs.map(c => c.id)),
+      eq(messages.isRead, false),
+      not(eq(messages.senderId, userId))
+    ));
+  return Number(result?.count ?? 0);
+}
+
+// ============================================================================
+// ADMIN (ADDITIONAL)
+// ============================================================================
+
+export async function getPendingCreators(limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(creatorProfiles)
+    .where(eq(creatorProfiles.verificationStatus, "pending"))
+    .orderBy(creatorProfiles.createdAt)
+    .limit(limit);
+}
+
+export async function resolveDispute(disputeId: number, resolution: string, status: string, resolvedBy: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.update(disputes)
+    .set({ resolution, status, resolvedBy, updatedAt: new Date() } as any)
+    .where(eq(disputes.id, disputeId))
+    .returning();
+  return result[0];
+}
+
+export async function updateSocialAccountVerification(accountId: number, status: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(socialMediaAccounts).set({ verificationStatus: status }).where(eq(socialMediaAccounts.id, accountId));
+}
+
+// ============================================================================
+// CAMPAIGN ANALYTICS (UPSERT)
+// ============================================================================
+
+export async function upsertCampaignAnalytics(campaignId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const campaign = await getCampaign(campaignId);
+  if (!campaign) throw new Error("Campaign not found");
+
+  const roster = await getCampaignRoster(campaignId);
+  const totalCreators = roster.length;
+  const acceptedCreators = roster.filter((r) => r.status === "accepted" || r.status === "completed").length;
+  const completedCreators = roster.filter((r) => r.status === "completed").length;
+
+  const payoutRows = await db
+    .select()
+    .from(payouts)
+    .where(
+      and(
+        inArray(
+          payouts.rosterId,
+          roster.map((r) => r.id)
+        ),
+        eq(payouts.status, "completed")
+      )
+    );
+  const totalSpent = payoutRows.reduce((sum, p) => sum + Number(p.amount), 0);
+
+  const existing = await db
+    .select()
+    .from(campaignAnalytics)
+    .where(eq(campaignAnalytics.campaignId, campaignId))
+    .limit(1);
+
+  if (existing.length > 0) {
+    const result = await db
+      .update(campaignAnalytics)
+      .set({
+        totalCreators,
+        acceptedCreators,
+        completedCreators,
+        totalBudget: String(campaign.budget),
+        totalSpent: String(totalSpent),
+        updatedAt: new Date(),
+      })
+      .where(eq(campaignAnalytics.campaignId, campaignId))
+      .returning();
+    return result[0];
+  } else {
+    const result = await db
+      .insert(campaignAnalytics)
+      .values({
+        campaignId,
+        totalCreators,
+        acceptedCreators,
+        completedCreators,
+        totalBudget: String(campaign.budget),
+        totalSpent: String(totalSpent),
+        totalEngagement: 0,
+        averageEngagementRate: "0",
+        totalReach: 0,
+      })
+      .returning();
+    return result[0];
+  }
 }

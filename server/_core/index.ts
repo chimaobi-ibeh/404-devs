@@ -13,6 +13,8 @@ import {
   processAutoApprovals,
   processNoShows,
 } from "../monitoring";
+import { storagePut } from "../storage";
+import { sdk } from "./sdk";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -41,6 +43,34 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+
+  // Profile image upload
+  app.post("/api/upload/profile-image", async (req, res) => {
+    // Expect base64 body: { dataUrl: "data:image/jpeg;base64,..." }
+    let user;
+    try {
+      user = await sdk.authenticateRequest(req);
+    } catch {
+      res.status(401).json({ error: "Unauthorized" }); return;
+    }
+    const { dataUrl } = req.body ?? {};
+    if (!dataUrl || !dataUrl.startsWith("data:")) {
+      res.status(400).json({ error: "dataUrl is required (base64 data URL)" }); return;
+    }
+    try {
+      const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) { res.status(400).json({ error: "Invalid data URL format" }); return; }
+      const contentType = matches[1];
+      const buffer = Buffer.from(matches[2], "base64");
+      const ext = contentType.split("/")[1]?.split("+")[0] ?? "jpg";
+      const key = `profile-images/${user.id}-${Date.now()}.${ext}`;
+      const { url } = await storagePut(key, buffer, contentType);
+      res.json({ url });
+    } catch (err: any) {
+      console.error("[Upload] Profile image failed:", err?.message);
+      res.status(500).json({ error: "Upload failed" });
+    }
+  });
 
   // Dev-only login bypass — lets you log in as any role without Manus OAuth
   if (process.env.NODE_ENV !== "production") {

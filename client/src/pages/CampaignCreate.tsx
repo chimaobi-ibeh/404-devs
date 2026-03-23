@@ -29,6 +29,9 @@ export default function CampaignCreate() {
       ...formData,
       budget: parseFloat(formData.budget),
       deadline: new Date(formData.deadline),
+      postingWindowStart: formData.postingWindowStart || undefined,
+      postingWindowEnd: formData.postingWindowEnd || undefined,
+      targetPlatforms: formData.targetPlatforms?.length > 0 ? formData.targetPlatforms : undefined,
     });
   };
 
@@ -147,6 +150,86 @@ export default function CampaignCreate() {
                   <SelectItem value="hybrid">Hybrid (Mix of above)</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Campaign Brief */}
+            <div>
+              <h2 className="text-2xl font-bold mb-4">Campaign Brief</h2>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="deliverables">Deliverables</Label>
+                  <Textarea
+                    id="deliverables"
+                    placeholder="What content should creators produce? (e.g. 1x 60s TikTok video, 2x Instagram Stories)"
+                    value={formData.deliverables || ""}
+                    onChange={(e) => setFormData({ ...formData, deliverables: e.target.value })}
+                  />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="contentDos">Content Dos</Label>
+                    <Textarea
+                      id="contentDos"
+                      placeholder="What creators should include or do..."
+                      value={formData.contentDos || ""}
+                      onChange={(e) => setFormData({ ...formData, contentDos: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="contentDonts">Content Don'ts</Label>
+                    <Textarea
+                      id="contentDonts"
+                      placeholder="What creators should avoid..."
+                      value={formData.contentDonts || ""}
+                      onChange={(e) => setFormData({ ...formData, contentDonts: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="block mb-2">Target Platforms</Label>
+                  <div className="flex flex-wrap gap-3">
+                    {["instagram", "tiktok", "youtube", "x", "twitch"].map((platform) => {
+                      const selected: string[] = formData.targetPlatforms || [];
+                      const isChecked = selected.includes(platform);
+                      return (
+                        <label key={platform} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              const next = isChecked
+                                ? selected.filter((p) => p !== platform)
+                                : [...selected, platform];
+                              setFormData({ ...formData, targetPlatforms: next });
+                            }}
+                          />
+                          <span className="text-sm capitalize">{platform}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="postingWindowStart">Posting Window Start</Label>
+                    <Input
+                      id="postingWindowStart"
+                      type="date"
+                      value={formData.postingWindowStart || ""}
+                      onChange={(e) => setFormData({ ...formData, postingWindowStart: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="postingWindowEnd">Posting Window End</Label>
+                    <Input
+                      id="postingWindowEnd"
+                      type="date"
+                      value={formData.postingWindowEnd || ""}
+                      onChange={(e) => setFormData({ ...formData, postingWindowEnd: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Actions */}

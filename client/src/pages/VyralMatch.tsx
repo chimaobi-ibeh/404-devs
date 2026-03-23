@@ -23,7 +23,7 @@ export default function VyralMatch() {
     setSelectedNiches((prev) => prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]);
 
   return (
-    <AppLayout activeNav="CAMPAIGNS">
+    <AppLayout>
       <div className="p-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">

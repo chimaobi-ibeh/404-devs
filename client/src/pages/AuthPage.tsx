@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 
-type Mode = "signin" | "signup";
+type Mode = "signin" | "signup" | "forgot";
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
@@ -17,6 +17,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,6 +25,19 @@ export default function AuthPage() {
     setLoading(true);
 
     try {
+      if (mode === "forgot") {
+        const res = await fetch("/api/auth/forgot-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error ?? "Something went wrong");
+        setForgotSuccess(true);
+        setLoading(false);
+        return;
+      }
+
       const endpoint = mode === "signin" ? "/api/auth/login" : "/api/auth/register";
       const res = await fetch(endpoint, {
         method: "POST",
@@ -37,7 +51,7 @@ export default function AuthPage() {
         throw new Error(body.error ?? "Something went wrong");
       }
 
-      setLocation("/onboarding");
+      setLocation(body.redirect ?? "/onboarding");
     } catch (err: any) {
       setError(err.message ?? "An error occurred");
     } finally {
@@ -68,81 +82,126 @@ export default function AuthPage() {
         <p className="text-muted-foreground mb-8">
           {mode === "signin"
             ? "Sign in to continue to your dashboard."
-            : "Create an account to get started."}
+            : mode === "signup"
+            ? "Create an account to get started."
+            : "Enter your email to receive a reset link."}
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+        {mode === "forgot" && forgotSuccess ? (
+          <div className="space-y-4 text-center">
+            <p className="text-sm text-signal">Check your email for a reset link.</p>
+            <button
+              type="button"
+              onClick={() => { setMode("signin"); setForgotSuccess(false); setError(null); }}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors underline"
+            >
+              Back to sign in
+            </button>
           </div>
+        ) : (
+          <>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete={
-                mode === "signin" ? "current-password" : "new-password"
-              }
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-            />
-          </div>
+              {mode !== "forgot" && (
+                <div className="space-y-1">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete={
+                      mode === "signin" ? "current-password" : "new-password"
+                    }
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                  {mode === "signin" && (
+                    <div className="text-right -mt-1">
+                      <button
+                        type="button"
+                        onClick={() => { setMode("forgot"); setError(null); }}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+              {error && (
+                <p className="text-sm text-destructive">{error}</p>
+              )}
 
-          <Button type="submit" className="w-full" size="lg" disabled={loading}>
-            {loading
-              ? "Please wait…"
-              : mode === "signin"
-              ? "Sign In"
-              : "Create Account"}
-          </Button>
-        </form>
+              <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                {loading
+                  ? "Please wait…"
+                  : mode === "signin"
+                  ? "Sign In"
+                  : mode === "signup"
+                  ? "Create Account"
+                  : "Send Reset Link"}
+              </Button>
+            </form>
 
-        <p className="text-sm text-muted-foreground text-center mt-6">
-          {mode === "signin" ? (
-            <>
-              Don't have an account?{" "}
-              <button
-                className="underline"
-                onClick={() => {
-                  setMode("signup");
-                  setError(null);
-                }}
-              >
-                Sign up
-              </button>
-            </>
-          ) : (
-            <>
-              Already have an account?{" "}
-              <button
-                className="underline"
-                onClick={() => {
-                  setMode("signin");
-                  setError(null);
-                }}
-              >
-                Sign in
-              </button>
-            </>
-          )}
-        </p>
+            <p className="text-sm text-muted-foreground text-center mt-6">
+              {mode === "signin" ? (
+                <>
+                  Don't have an account?{" "}
+                  <button
+                    className="underline"
+                    onClick={() => {
+                      setMode("signup");
+                      setError(null);
+                    }}
+                  >
+                    Sign up
+                  </button>
+                </>
+              ) : mode === "signup" ? (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    className="underline"
+                    onClick={() => {
+                      setMode("signin");
+                      setError(null);
+                    }}
+                  >
+                    Sign in
+                  </button>
+                </>
+              ) : (
+                <>
+                  Remember your password?{" "}
+                  <button
+                    className="underline"
+                    onClick={() => {
+                      setMode("signin");
+                      setError(null);
+                    }}
+                  >
+                    Sign in
+                  </button>
+                </>
+              )}
+            </p>
+          </>
+        )}
 
         <p className="text-xs text-muted-foreground text-center mt-3">
           By signing in, you agree to our Terms of Service and Privacy Policy.

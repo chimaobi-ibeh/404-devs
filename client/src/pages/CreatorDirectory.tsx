@@ -12,7 +12,7 @@ const tierColors: Record<string, string> = {
 };
 
 export default function CreatorDirectory() {
-  const [filters, setFilters] = useState({ niche: "", minFollowers: 0, tier: "" });
+  const [filters, setFilters] = useState({ niche: "", minFollowers: 0, tier: "", platform: "" });
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const { data: creators } = trpc.creator.searchCreators.useQuery(filters);
@@ -23,27 +23,17 @@ export default function CreatorDirectory() {
     );
   };
 
-  const mockCreators = [
-    { id: 1, displayName: "LUMINARY KAI", handle: "@luminary_kai", niche: "Tech", tier: "mega", totalFollowers: 2840000, engagementRate: 8.4, vyralScore: 98.2, badge: "VERIFIED" },
-    { id: 2, displayName: "NOVA X", handle: "@nova_x", niche: "Lifestyle", tier: "macro", totalFollowers: 842000, engagementRate: 6.1, vyralScore: 94.7, badge: "TRENDING" },
-    { id: 3, displayName: "SPECTRAL JAY", handle: "@spectral_j", niche: "Gaming", tier: "mega", totalFollowers: 5120000, engagementRate: 12.3, vyralScore: 96.1, badge: "VERIFIED" },
-    { id: 4, displayName: "ECHO RISE", handle: "@echo_rise", niche: "Tech", tier: "micro", totalFollowers: 76000, engagementRate: 9.7, vyralScore: 87.4, badge: "TRENDING" },
-    { id: 5, displayName: "PRISM WAVE", handle: "@prism_wave", niche: "Fitness", tier: "mid", totalFollowers: 203000, engagementRate: 7.2, vyralScore: 89.3, badge: "VERIFIED" },
-    { id: 6, displayName: "DRIFT CO", handle: "@drift_co", niche: "Lifestyle", tier: "nano", totalFollowers: 94000, engagementRate: 5.8, vyralScore: 82.1, badge: null },
-  ];
-
-  const displayCreators = creators && creators.length > 0 ? creators : mockCreators;
+  const displayCreators = creators ?? [];
   const filteredCreators = displayCreators.filter(
     (c) =>
       search === "" ||
-      c.displayName.toLowerCase().includes(search.toLowerCase()) ||
-      (c as any).handle?.toLowerCase().includes(search.toLowerCase())
+      c.displayName.toLowerCase().includes(search.toLowerCase())
   );
 
-  const selectedCreators = mockCreators.filter((c) => selectedIds.includes(c.id));
+  const selectedCreators = filteredCreators.filter((c) => selectedIds.includes(c.id));
 
   return (
-    <AppLayout activeNav="CREATORS">
+    <AppLayout>
       <div className="p-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
@@ -61,12 +51,8 @@ export default function CreatorDirectory() {
             <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-1">LIVE SYSTEM STATUS</p>
             <div className="flex gap-4">
               <div>
-                <p className="font-mono text-sm text-foreground font-bold">12.4K</p>
+                <p className="font-mono text-sm text-foreground font-bold">{displayCreators.length}</p>
                 <p className="font-mono text-[8px] text-muted-foreground tracking-widest">ACTIVE CREATORS</p>
-              </div>
-              <div>
-                <p className="font-mono text-sm text-signal font-bold">$4.2M</p>
-                <p className="font-mono text-[8px] text-muted-foreground tracking-widest">MARKET VOL</p>
               </div>
             </div>
           </div>
@@ -87,14 +73,16 @@ export default function CreatorDirectory() {
         {/* Filters Row */}
         <div className="flex items-center gap-3 mb-6">
           <select
-            value={filters.tier}
-            onChange={(e) => setFilters({ ...filters, tier: e.target.value })}
+            value={filters.platform}
+            onChange={(e) => setFilters({ ...filters, platform: e.target.value })}
             className="bg-card border border-border rounded px-3 py-2 font-mono text-xs text-muted-foreground focus:outline-none focus:border-foreground/50"
           >
-            <option value="">PLATFORM (X/TWITTER)</option>
-            <option value="">TIKTOK</option>
-            <option value="">INSTAGRAM</option>
-            <option value="">YOUTUBE</option>
+            <option value="">ALL PLATFORMS</option>
+            <option value="x">X / TWITTER</option>
+            <option value="tiktok">TIKTOK</option>
+            <option value="instagram">INSTAGRAM</option>
+            <option value="youtube">YOUTUBE</option>
+            <option value="twitch">TWITCH</option>
           </select>
 
           <select
@@ -102,7 +90,7 @@ export default function CreatorDirectory() {
             onChange={(e) => setFilters({ ...filters, niche: e.target.value })}
             className="bg-card border border-border rounded px-3 py-2 font-mono text-xs text-muted-foreground focus:outline-none focus:border-foreground/50"
           >
-            <option value="">NICHE (AI/DEV)</option>
+            <option value="">ALL NICHES</option>
             <option value="Tech">TECH</option>
             <option value="Lifestyle">LIFESTYLE</option>
             <option value="Gaming">GAMING</option>
@@ -147,14 +135,9 @@ export default function CreatorDirectory() {
                     {creator.tier}
                   </span>
 
-                  {/* Verified/Trending badge */}
-                  {creator.badge && (
-                    <span className={`absolute top-3 right-3 font-mono text-[7px] rounded px-1.5 py-0.5 tracking-widest ${
-                      creator.badge === "VERIFIED"
-                        ? "bg-signal/20 text-signal border border-signal/40"
-                        : "bg-gold/20 text-gold border border-gold/40"
-                    }`}>
-                      {creator.badge}
+                  {creator.verificationStatus === "verified" && (
+                    <span className="absolute top-3 right-3 font-mono text-[7px] rounded px-1.5 py-0.5 tracking-widest bg-signal/20 text-signal border border-signal/40">
+                      VERIFIED
                     </span>
                   )}
                 </div>
@@ -162,9 +145,9 @@ export default function CreatorDirectory() {
                 {/* Card Body */}
                 <div className="p-4">
                   <h3 className="font-display text-xl tracking-wider text-foreground">{creator.displayName}</h3>
-                  <p className="font-mono text-[9px] text-muted-foreground mb-1">{creator.handle || `@${creator.displayName.toLowerCase().replace(/\s/g, "_")}`}</p>
+                  <p className="font-mono text-[9px] text-muted-foreground mb-1">@{creator.displayName.toLowerCase().replace(/\s/g, "_")}</p>
                   <p className="font-mono text-[9px] text-primary mb-3 tracking-widest">
-                    VYRAL SCORE {creator.vyralScore ?? (creator as any).vyralScore ?? "—"}
+                    VYRAL SCORE {creator.vyralScore ?? "—"}
                   </p>
 
                   <div className="flex gap-4 mb-4">
