@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Shield } from "lucide-react";
+import { Shield, Sun, Moon } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function AdminLoginPage() {
   const [, setLocation] = useLocation();
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +33,20 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center px-6">
-      <div className="bg-[#111] border border-white/5 rounded-2xl p-8 w-full max-w-sm">
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Top bar with theme toggle */}
+      <div className="flex items-center justify-end px-6 py-4 border-b border-border">
+        <button
+          onClick={toggleTheme}
+          className="w-9 h-9 flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+          aria-label="Toggle theme"
+        >
+          {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center px-6">
+      <div className="bg-card border border-border rounded-2xl p-8 w-full max-w-sm">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
             <Shield className="w-4 h-4 text-primary" />
@@ -82,6 +97,7 @@ export default function AdminLoginPage() {
             {loading ? "AUTHENTICATING…" : "ACCESS SYSTEM"}
           </button>
         </form>
+      </div>
       </div>
     </div>
   );

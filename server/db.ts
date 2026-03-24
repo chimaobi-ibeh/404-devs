@@ -24,6 +24,7 @@ import {
   portfolioItems,
   conversations,
   messages,
+  platformSettings,
 } from "../drizzle/schema";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1208,4 +1209,50 @@ export async function upsertCampaignAnalytics(campaignId: number) {
       .returning();
     return result[0];
   }
+}
+
+// ============================================================================
+// PLATFORM SETTINGS
+// ============================================================================
+
+const SETTING_DEFAULTS: Record<string, string> = {
+  platform_fee_pct:      "5",      // percentage taken on each campaign payment
+  pro_price:             "1200",   // ₦ per month for Pro subscription
+  maintenance_mode:      "false",  // "true" | "false"
+  auto_approval_days:    "7",      // days before content is auto-approved
+};
+
+export async function getPlatformSetting(key: string): Promise<string> {
+  const db = await getDb();
+  const fallback = SETTING_DEFAULTS[key] ?? "";
+  if (!db) return fallback;
+  try {
+    const rows = await db.select().from(platformSettings).where(eq(platformSettings.key, key)).limit(1);
+    return rows.length > 0 ? rows[0].value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export async function getAllPlatformSettings(): Promise<Record<string, string>> {
+  const db = await getDb();
+  const result = { ...SETTING_DEFAULTS };
+  if (!db) return result;
+  try {
+    const rows = await db.select().from(platformSettings);
+    for (const row of rows) result[row.key] = row.value;
+  } catch { /* table may not exist yet — return defaults */ }
+  return result;
+}
+
+export async function setPlatformSetting(key: string, value: string, adminId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .insert(platformSettings)
+    .values({ key, value, updatedBy: adminId, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: platformSettings.key,
+      set: { value, updatedBy: adminId, updatedAt: new Date() },
+    });
 }

@@ -142,7 +142,8 @@ const advertiserRouter = router({
         // (advertiser pro subscription is separate — for now check count only at 3, no advertiser pro yet)
         throw new TRPCError({ code: "FORBIDDEN", message: "Free accounts are limited to 3 active campaigns. Contact support to upgrade." });
       }
-      const platformFee = input.budget * 0.05;
+      const feePct = parseFloat(await db.getPlatformSetting("platform_fee_pct")) / 100;
+      const platformFee = input.budget * feePct;
       return db.createCampaign({
         advertiserId: ctx.user.id,
         title: input.title,
@@ -1207,6 +1208,21 @@ const adminRouter = router({
       openDisputes: disputes.filter((d: any) => d.status === "open").length,
     };
   }),
+
+  getSettings: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+    return db.getAllPlatformSettings();
+  }),
+
+  updateSettings: protectedProcedure
+    .input(z.object({ settings: z.record(z.string(), z.string()) }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      for (const [key, value] of Object.entries(input.settings)) {
+        await db.setPlatformSetting(key, value, ctx.user.id);
+      }
+      return { success: true };
+    }),
 });
 
 // ============================================================================

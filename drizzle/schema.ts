@@ -475,3 +475,15 @@ export const messages = pgTable("messages", {
 });
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = typeof messages.$inferInsert;
+
+// ============================================================================
+// PLATFORM SETTINGS
+// ============================================================================
+
+export const platformSettings = pgTable("platform_settings", {
+  key:       varchar("key", { length: 100 }).primaryKey(),
+  value:     text("value").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  updatedBy: integer("updatedBy"),  // admin users.id
+});
+export type PlatformSetting = typeof platformSettings.$inferSelect;

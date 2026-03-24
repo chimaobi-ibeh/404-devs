@@ -26,7 +26,8 @@
       "Bash(npx vite:*)",
       "Bash(grep -n \"CASH OUT\\\\|Stripe\\\\|Payment\\\\|accept\\\\|acceptMatch\" \"c:/Users/user/Downloads/vyral-platform/client/src/pages/\"*.tsx)",
       "Bash(grep -r \"const.*data.*=\" /c/Users/user/Downloads/vyral-platform/client/src/pages/*.tsx)",
-      "Bash(ls -1 /c/Users/user/Downloads/vyral-platform/client/src/pages/*.tsx)"
+      "Bash(ls -1 /c/Users/user/Downloads/vyral-platform/client/src/pages/*.tsx)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,'''':'''',v\\) for k,v in d.get\\(''''scripts'''',{}\\).items\\(\\)]\")"
     ]
   }
 }

@@ -3,14 +3,14 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 
 type Mode = "signin" | "signup" | "forgot";
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
-  const { theme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -66,24 +66,33 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0A0A]">
+    <div className="min-h-screen flex flex-col bg-background">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-5">
+      <div className="flex items-center justify-between px-6 py-5 border-b border-border">
         <a href="/" className="flex items-center">
           <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-9 w-auto" />
         </a>
-        <a
-          href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to home
-        </a>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={toggleTheme}
+            className="w-9 h-9 flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+            aria-label="Toggle theme"
+          >
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+          <a
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to home
+          </a>
+        </div>
       </div>
 
       {/* Card */}
       <div className="flex-1 flex items-center justify-center px-6 py-12">
-      <div className="bg-[#111111] border border-white/5 rounded-2xl p-8 max-w-md w-full">
+      <div className="bg-card border border-border rounded-2xl p-8 max-w-md w-full">
         <h1 className="text-3xl font-bold mb-2">Welcome to Vyral</h1>
         <p className="text-muted-foreground mb-8">
           {mode === "signin"

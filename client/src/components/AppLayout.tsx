@@ -42,6 +42,7 @@ function getSidebarLinks(role: string) {
     { icon: Users,         label: "Verifications", path: "/admin/verifications" },
     { icon: FileText,      label: "Disputes",      path: "/admin/disputes" },
     { icon: TrendingUp,    label: "System Health", path: "/admin/system" },
+    { icon: Settings,      label: "Settings",      path: "/admin/settings" },
   ];
 }
 
