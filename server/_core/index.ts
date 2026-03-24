@@ -216,15 +216,15 @@ async function startServer() {
     serveStatic(app);
   }
 
-  const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
+  const port = parseInt(process.env.PORT || "3000");
+  // In production always bind to the exact PORT assigned by the host (e.g. Render).
+  // Port-scanning is only useful in local dev where ports may be occupied.
+  const listenPort = process.env.NODE_ENV === "production"
+    ? port
+    : await findAvailablePort(port);
 
-  if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
-  }
-
-  server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+  server.listen(listenPort, "0.0.0.0", () => {
+    console.log(`Server running on http://0.0.0.0:${listenPort}/`);
   });
 
   startBackgroundJobProcessor();
