@@ -24,7 +24,8 @@
       "Bash(xargs grep:*)",
       "Bash(find /c/Users/user/Downloads/vyral-platform/server -type f -name *.ts)",
       "Bash(npx vite:*)",
-      "Bash(grep -n \"CASH OUT\\\\|Stripe\\\\|Payment\\\\|accept\\\\|acceptMatch\" \"c:/Users/user/Downloads/vyral-platform/client/src/pages/\"*.tsx)"
+      "Bash(grep -n \"CASH OUT\\\\|Stripe\\\\|Payment\\\\|accept\\\\|acceptMatch\" \"c:/Users/user/Downloads/vyral-platform/client/src/pages/\"*.tsx)",
+      "Bash(grep -r \"const.*data.*=\" /c/Users/user/Downloads/vyral-platform/client/src/pages/*.tsx)"
     ]
   }
 }

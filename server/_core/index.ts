@@ -73,6 +73,9 @@ async function startServer() {
     }
   });
 
+  // Health check — used by uptime monitors to keep the service alive
+  app.get("/health", (_req, res) => res.json({ status: "ok" }));
+
   // Dev-only login bypass — lets you log in as any role without Manus OAuth
   if (process.env.NODE_ENV !== "production") {
     app.get("/api/dev/login", async (req, res) => {
