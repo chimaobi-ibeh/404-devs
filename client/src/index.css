@@ -85,7 +85,7 @@
   --secondary-foreground: #0A0A0A;
 
   --muted:              #EAE7E0;
-  --muted-foreground:   #666666;
+  --muted-foreground:   #525252;
 
   --accent:             #00CC8E;   /* Signal Green (darker for light bg) */
   --accent-foreground:  #0A0A0A;
@@ -134,7 +134,7 @@
   --secondary-foreground: #F5F2EC;
 
   --muted:              #1A1A1A;
-  --muted-foreground:   #888888;
+  --muted-foreground:   #A8A8A8;
 
   --accent:             #00FFB2;
   --accent-foreground:  #0A0A0A;
@@ -194,6 +194,16 @@
   input[type="radio"]:not(:disabled) {
     @apply cursor-pointer;
   }
+}
+
+/* ─── Readability: enforce minimum font sizes ────────────────────────────── */
+/* Tiny arbitrary Tailwind sizes are used as labels throughout the app.       */
+/* Override them globally here rather than touching every component.          */
+@layer utilities {
+  .text-\[8px\]  { font-size: 11px; line-height: 1.5; }
+  .text-\[9px\]  { font-size: 12px; line-height: 1.5; }
+  .text-\[10px\] { font-size: 13px; line-height: 1.5; }
+  .text-\[11px\] { font-size: 13px; line-height: 1.5; }
 }
 
 /* ─── Components ─────────────────────────────────────────────────────────── */

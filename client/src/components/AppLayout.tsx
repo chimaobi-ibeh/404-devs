@@ -7,7 +7,7 @@ import {
   LayoutDashboard, TrendingUp, DollarSign, Users, Bell,
   HelpCircle, LogOut, User, Megaphone, Shield,
   FileText, Check, CheckCheck, MessageSquare, Calendar,
-  Menu, X,
+  Menu, X, Settings,
 } from "lucide-react";
 
 interface AppLayoutProps {
@@ -25,6 +25,7 @@ function getSidebarLinks(role: string) {
     { icon: MessageSquare,   label: "Messages",       path: "/messages" },
     { icon: Calendar,        label: "Calendar",       path: "/calendar" },
     { icon: User,            label: "Profile",        path: "/profile" },
+    { icon: Settings,        label: "Settings",       path: "/settings" },
   ];
   if (role === "creator") return [
     { icon: LayoutDashboard, label: "Dashboard",  path: "/creator/dashboard" },
@@ -33,6 +34,7 @@ function getSidebarLinks(role: string) {
     { icon: MessageSquare,   label: "Messages",   path: "/messages" },
     { icon: Calendar,        label: "Calendar",   path: "/calendar" },
     { icon: User,            label: "Profile",    path: "/profile" },
+    { icon: Settings,        label: "Settings",   path: "/settings" },
   ];
   // admin
   return [

@@ -29,6 +29,7 @@ import CreatorProfilePage from "./pages/CreatorProfilePage";
 import CreatorCampaignView from "./pages/CreatorCampaignView";
 import CampaignMarketplace from "./pages/CampaignMarketplace";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import SettingsPage from "./pages/SettingsPage";
 
 // ─── Access rules ─────────────────────────────────────────────────────────────
 // admin: only admin routes — cannot impersonate creator or advertiser
@@ -87,6 +88,7 @@ function Router() {
       {/* All authenticated users */}
       <Route path="/onboarding"><ProtectedRoute component={OnboardingPage} /></Route>
       <Route path="/profile"><ProtectedRoute component={ProfilePage} /></Route>
+      <Route path="/settings"><ProtectedRoute component={SettingsPage} /></Route>
       <Route path="/creator/directory"><ProtectedRoute component={CreatorDirectory} /></Route>
       <Route path="/messages"><ProtectedRoute component={MessagesPage} /></Route>
       <Route path="/calendar"><ProtectedRoute component={ContentCalendarPage} /></Route>

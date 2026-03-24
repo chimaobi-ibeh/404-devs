@@ -258,6 +258,55 @@ export function registerOAuthRoutes(app: Express) {
   });
 
   /**
+   * POST /api/auth/change-password
+   * Body: { currentPassword, newPassword }
+   * Requires an active session cookie.
+   */
+  app.post("/api/auth/change-password", async (req: Request, res: Response) => {
+    const { currentPassword, newPassword } = req.body ?? {};
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: "currentPassword and newPassword are required" }); return;
+    }
+    try {
+      const user = await sdk.authenticateRequest(req);
+      if (!user) { res.status(401).json({ error: "Not authenticated" }); return; }
+      const anon = makeAnonClient();
+      const admin = makeAdminClient();
+      // Verify current password by attempting sign-in
+      const { error: signInError } = await anon.auth.signInWithPassword({
+        email: user.email ?? "",
+        password: currentPassword,
+      });
+      if (signInError) { res.status(400).json({ error: "Current password is incorrect" }); return; }
+      // Update to new password
+      const { error } = await admin.auth.admin.updateUserById(user.openId, { password: newPassword });
+      if (error) { res.status(400).json({ error: error.message }); return; }
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to change password" });
+    }
+  });
+
+  /**
+   * POST /api/auth/delete-account
+   * Permanently deletes the authenticated user's Supabase account and session.
+   */
+  app.post("/api/auth/delete-account", async (req: Request, res: Response) => {
+    try {
+      const user = await sdk.authenticateRequest(req);
+      if (!user) { res.status(401).json({ error: "Not authenticated" }); return; }
+      const admin = makeAdminClient();
+      const { error } = await admin.auth.admin.deleteUser(user.openId);
+      if (error) { res.status(400).json({ error: error.message }); return; }
+      const cookieOptions = getSessionCookieOptions(req);
+      res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to delete account" });
+    }
+  });
+
+  /**
    * POST /api/auth/forgot-password
    * Body: { email }
    * Sends a Supabase password reset email.
