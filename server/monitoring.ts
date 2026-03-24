@@ -555,6 +555,56 @@ export async function processNoShows(): Promise<void> {
   }
 }
 
+// ============================================================================
+// PAYOUT RELEASE PROCESSOR
+// ============================================================================
+
+/**
+ * Process all payouts whose releaseDate has passed.
+ * Calls Interswitch disbursement API for each creator and marks them completed.
+ */
+export async function processPendingPayouts(): Promise<void> {
+  const { disburseToBankAccount } = await import("./interswitch");
+  const releasedPayouts = await db.getReleasedPendingPayouts(50);
+
+  for (const payout of releasedPayouts) {
+    try {
+      const details = await db.getPayoutWithCreatorDetails(payout.id);
+      if (!details) {
+        // No bank account on file — mark failed
+        await db.updatePayoutStatus(payout.id, "failed");
+        console.warn(`[Payouts] No bank details for payout #${payout.id}, marking failed`);
+        continue;
+      }
+
+      await db.updatePayoutStatus(payout.id, "processing");
+
+      const result = await disburseToBankAccount(
+        details.bank.accountNumber,
+        details.bank.bankCode,
+        details.bank.accountName,
+        Number(payout.amount),
+        `Vyral campaign payout #${payout.id}`,
+        payout.id
+      );
+
+      if (result.success) {
+        await db.updatePayoutStatus(payout.id, "completed");
+        if (result.reference) await db.updatePayoutTransferRef(payout.id, result.reference);
+        // Notify creator
+        const profile = await db.getCreatorProfileById(payout.creatorId);
+        if (profile) await notifyPayoutReleased(profile.userId, Number(payout.amount), details.campaignId);
+        console.log(`[Payouts] Payout #${payout.id} disbursed: ₦${payout.amount}`);
+      } else {
+        await db.updatePayoutStatus(payout.id, "failed");
+        console.error(`[Payouts] Payout #${payout.id} failed: ${result.message}`);
+      }
+    } catch (err: any) {
+      console.error(`[Payouts] Error processing payout #${payout.id}:`, err?.message);
+    }
+  }
+}
+
 export const monitoringConfig = {
   checkInterval: MONITORING_INTERVAL_MS,
   gracePeriod: GRACE_PERIOD_MS,

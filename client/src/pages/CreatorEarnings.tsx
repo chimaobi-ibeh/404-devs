@@ -1,16 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { CheckCircle, Rocket } from "lucide-react";
+import { toast } from "sonner";
 
 type TimeFilter = "1W" | "1M" | "ALL";
 
 export default function CreatorEarnings() {
-  const { data: earnings } = trpc.creator.getEarnings.useQuery();
-  const { data: subscription } = trpc.creator.getSubscription.useQuery();
-  const upgradeToPro = trpc.creator.upgradeToPro.useMutation();
+  const { data: earnings, refetch: refetchEarnings } = trpc.creator.getEarnings.useQuery();
+  const { data: subscription, refetch: refetchSub } = trpc.creator.getSubscription.useQuery();
+  const requestPayout = trpc.creator.requestPayout.useMutation({
+    onSuccess: (data) => {
+      toast.success(`₦${data.amount.toLocaleString()} sent to your bank account`);
+      refetchEarnings();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const upgradeToPro = trpc.creator.upgradeToPro.useMutation({
+    onSuccess: (data) => {
+      window.location.href = data.redirectUrl;
+    },
+    onError: (e) => toast.error(e.message),
+  });
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("1M");
   const [search, setSearch] = useState("");
+
+  // Show pro payment result toast
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pro = params.get("pro");
+    if (pro === "success") { toast.success("Pro subscription activated!"); refetchSub(); }
+    else if (pro === "failed") toast.error("Pro payment failed. Please try again.");
+    else if (pro === "error") toast.error("Something went wrong with your Pro payment.");
+  }, []);
 
   const totalEarnings = earnings?.totalEarnings ?? 0;
   const pendingEarnings = earnings?.pendingEarnings ?? 0;
@@ -46,15 +68,16 @@ export default function CreatorEarnings() {
             <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-2">WALLET BALANCE</p>
             <div className="flex items-baseline gap-3 mb-6">
               <p className="font-mono text-5xl text-signal font-bold">
-                ${totalEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                ₦{totalEarnings.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
               </p>
             </div>
             <div className="flex gap-3">
-              <button className="px-5 py-2.5 bg-primary text-primary-foreground font-mono text-xs tracking-widest rounded hover:bg-primary/90 transition-colors">
-                CASH OUT
-              </button>
-              <button className="px-5 py-2.5 border border-border font-mono text-xs tracking-widest text-muted-foreground hover:border-foreground hover:text-foreground transition-colors rounded">
-                VIEW DETAILS
+              <button
+                onClick={() => requestPayout.mutate()}
+                disabled={requestPayout.isPending || totalEarnings <= 0}
+                className="px-5 py-2.5 bg-primary text-primary-foreground font-mono text-xs tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {requestPayout.isPending ? "PROCESSING..." : "CASH OUT"}
               </button>
             </div>
           </div>
@@ -80,18 +103,18 @@ export default function CreatorEarnings() {
                 </div>
               ))}
             </div>
-            {!subscription ? (
+            {!subscription || subscription.status !== "active" ? (
               <button
-                onClick={() => upgradeToPro.mutate()}
+                onClick={() => upgradeToPro.mutate({ callbackUrl: `${window.location.origin}/api/payment/pro-callback` })}
                 disabled={upgradeToPro.isPending}
                 className="w-full py-2 border border-gold text-gold font-mono text-[9px] tracking-widest rounded hover:bg-gold/10 transition-colors disabled:opacity-50"
               >
-                {upgradeToPro.isPending ? "PROCESSING..." : "UPGRADE TO PRO"}
+                {upgradeToPro.isPending ? "REDIRECTING..." : "UPGRADE TO PRO — ₦1,200/mo"}
               </button>
             ) : (
-              <button className="w-full py-2 border border-gold text-gold font-mono text-[9px] tracking-widest rounded hover:bg-gold/10 transition-colors">
-                MANAGE SUBSCRIPTION
-              </button>
+              <div className="w-full py-2 border border-signal text-signal font-mono text-[9px] tracking-widest rounded text-center">
+                ✓ PRO ACTIVE
+              </div>
             )}
           </div>
         </div>
@@ -104,7 +127,7 @@ export default function CreatorEarnings() {
                 <div>
                   <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-2">PENDING ESCROW</p>
                   <p className="font-mono text-2xl text-foreground font-bold">
-                    ${pendingEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    ₦{pendingEarnings.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
                 <Rocket className="w-5 h-5 text-muted-foreground" />
@@ -151,7 +174,7 @@ export default function CreatorEarnings() {
                     </span>
                   </div>
                   <p className="font-mono text-sm text-signal font-bold">
-                    ${Number(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    ₦{Number(tx.amount).toLocaleString("en-NG", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               );

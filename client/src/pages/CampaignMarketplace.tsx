@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
-import { Search, ArrowRight, DollarSign } from "lucide-react";
+import { Search, ArrowRight, Banknote } from "lucide-react";
 
 const categoryOptions = ["music", "app", "brand", "event", "challenge"];
 const contentTypeOptions = ["video", "story", "reel", "hashtag", "dance_challenge", "trend", "review"];
@@ -122,7 +122,7 @@ export default function CampaignMarketplace() {
                   {/* Right side: budget + deadline + arrow */}
                   <div className="shrink-0 text-right space-y-1.5">
                     <div className="flex items-center justify-end gap-1">
-                      <DollarSign className="w-3 h-3 text-signal" />
+                      <Banknote className="w-3 h-3 text-signal" />
                       <p className="font-mono text-sm text-signal font-bold">
                         {Number(campaign.budget).toLocaleString()}
                       </p>

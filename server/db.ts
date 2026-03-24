@@ -1022,6 +1022,129 @@ export async function updateSocialAccountVerification(accountId: number, status:
 // CAMPAIGN ANALYTICS (UPSERT)
 // ============================================================================
 
+// ============================================================================
+// VYRAL MATCH (additional)
+// ============================================================================
+
+export async function getVyralMatchScoreById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(vyralMatchScores).where(eq(vyralMatchScores.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// ============================================================================
+// PAYOUT RELEASE
+// ============================================================================
+
+export async function getReleasedPendingPayouts(limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(payouts)
+    .where(and(eq(payouts.status, "pending"), lte(payouts.releaseDate, new Date())))
+    .orderBy(asc(payouts.releaseDate))
+    .limit(limit);
+}
+
+export async function getPayoutWithCreatorDetails(payoutId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const [payout] = await db.select().from(payouts).where(eq(payouts.id, payoutId)).limit(1);
+  if (!payout) return undefined;
+  const [profile] = await db.select().from(creatorProfiles).where(eq(creatorProfiles.id, payout.creatorId)).limit(1);
+  if (!profile?.stripeConnectId) return undefined;
+  const [roster] = await db.select({ campaignId: campaignRosters.campaignId }).from(campaignRosters).where(eq(campaignRosters.id, payout.rosterId)).limit(1);
+  try {
+    const bank = JSON.parse(profile.stripeConnectId) as { bankCode: string; accountNumber: string; accountName: string };
+    return { payout, bank, campaignId: roster?.campaignId ?? 0 };
+  } catch { return undefined; }
+}
+
+// ============================================================================
+// PRO GATING COUNTS
+// ============================================================================
+
+export async function getCreatorActiveApplicationCount(creatorProfileId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const [result] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(campaignRosters)
+    .where(and(
+      eq(campaignRosters.creatorId, creatorProfileId),
+      inArray(campaignRosters.status, ["applied", "invited", "accepted"]),
+    ));
+  return Number(result?.count ?? 0);
+}
+
+export async function getAdvertiserActiveCampaignCount(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const [result] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(campaigns)
+    .where(and(eq(campaigns.advertiserId, userId), inArray(campaigns.status, ["draft", "active"])));
+  return Number(result?.count ?? 0);
+}
+
+export async function getCreatorPortfolioCount(creatorProfileId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const [result] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(portfolioItems)
+    .where(eq(portfolioItems.creatorId, creatorProfileId));
+  return Number(result?.count ?? 0);
+}
+
+// ============================================================================
+// DISPUTES
+// ============================================================================
+
+export async function createDispute(data: typeof disputes.$inferInsert) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(disputes).values(data).returning();
+  return result[0];
+}
+
+// ============================================================================
+// ADMIN LOGS
+// ============================================================================
+
+export async function getRecentAdminLogs(limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(adminLogs).orderBy(desc(adminLogs.createdAt)).limit(limit);
+}
+
+export async function getPendingProSubscriptionByAdvertiserId(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  // Find the creator profile for this userId, then find their pending pro subscription
+  const [profile] = await db.select().from(creatorProfiles).where(eq(creatorProfiles.userId, userId)).limit(1);
+  if (!profile) return undefined;
+  const result = await db.select().from(creatorSubscriptions)
+    .where(and(eq(creatorSubscriptions.creatorId, profile.id), eq(creatorSubscriptions.status, "pending_payment")))
+    .orderBy(desc(creatorSubscriptions.createdAt))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function activateProSubscription(subscriptionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(creatorSubscriptions).set({ status: "active" }).where(eq(creatorSubscriptions.id, subscriptionId));
+}
+
+export async function setCreatorPro(userId: number, isPro: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(creatorProfiles)
+    .set({ isPro, proExpiresAt: isPro ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null } as any)
+    .where(eq(creatorProfiles.userId, userId));
+}
+
 export async function upsertCampaignAnalytics(campaignId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

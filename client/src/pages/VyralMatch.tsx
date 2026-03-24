@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useRoute } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
-import { Filter, Download } from "lucide-react";
+import { Filter, Download, X } from "lucide-react";
+import { toast } from "sonner";
 
 const niches = ["#TECH_CORE", "#LIFESTYLE_X", "#GAMING_PRO"];
 const platforms = ["TIKTOK", "REELS", "X"];
@@ -11,10 +12,16 @@ export default function VyralMatch() {
   const [, params] = useRoute("/brand/vyral-match/:campaignId");
   const campaignId = params?.campaignId ? parseInt(params.campaignId) : 0;
 
-  const { data: matches, isLoading } = trpc.vyralMatch.getMatches.useQuery({ campaignId });
+  const { data: matches, isLoading, refetch } = trpc.vyralMatch.getMatches.useQuery({ campaignId });
+  const acceptMatch = trpc.vyralMatch.acceptMatch.useMutation({
+    onSuccess: () => { toast.success("Creator invited to campaign"); setInviteModal(null); refetch(); },
+    onError: (e) => toast.error(e.message),
+  });
 
   const [activePlatforms, setActivePlatforms] = useState<string[]>(["TIKTOK"]);
   const [selectedNiches, setSelectedNiches] = useState<string[]>(["#TECH_CORE"]);
+  const [inviteModal, setInviteModal] = useState<{ scoreId: number; creatorId: number } | null>(null);
+  const [feeInput, setFeeInput] = useState("");
 
   const togglePlatform = (p: string) =>
     setActivePlatforms((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]);
@@ -163,7 +170,7 @@ export default function VyralMatch() {
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3 mb-4">
                         {[
                           { label: "AUDIENCE GROWTH", val: "+24.3%" },
-                          { label: "AVG CPV", val: "$0.012" },
+                          { label: "AVG CPV", val: "₦0.012" },
                           { label: "BRAND AFFINITY", val: `${matches[0].nicheScore}` },
                         ].map((stat) => (
                           <div key={stat.label}>
@@ -172,7 +179,10 @@ export default function VyralMatch() {
                           </div>
                         ))}
                       </div>
-                      <button className="px-4 py-2 bg-primary text-primary-foreground font-mono text-[9px] tracking-widest rounded hover:bg-primary/90 transition-colors">
+                      <button
+                        onClick={() => setInviteModal({ scoreId: matches[0].id, creatorId: matches[0].creatorId })}
+                        className="px-4 py-2 bg-primary text-primary-foreground font-mono text-[9px] tracking-widest rounded hover:bg-primary/90 transition-colors"
+                      >
                         INVITE TO CAMPAIGN (PRIORITY)
                       </button>
                     </div>
@@ -206,7 +216,10 @@ export default function VyralMatch() {
                             <p className="font-mono text-xs text-foreground font-bold">{match.engagementScore}%</p>
                           </div>
                         </div>
-                        <button className="w-full py-1.5 border border-border font-mono text-[8px] tracking-widest text-muted-foreground hover:border-primary hover:text-primary transition-colors rounded">
+                        <button
+                          onClick={() => setInviteModal({ scoreId: match.id, creatorId: match.creatorId })}
+                          className="w-full py-1.5 border border-border font-mono text-[8px] tracking-widest text-muted-foreground hover:border-primary hover:text-primary transition-colors rounded"
+                        >
                           INVITE TO CAMPAIGN
                         </button>
                       </div>
@@ -261,6 +274,49 @@ export default function VyralMatch() {
           </div>
         </div>
       </div>
+
+      {/* Invite Fee Modal */}
+      {inviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm">
+            <div className="flex items-center justify-between mb-4">
+              <p className="font-mono text-xs text-foreground font-bold tracking-widest">SET CREATOR FEE</p>
+              <button onClick={() => setInviteModal(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="font-mono text-[9px] text-muted-foreground mb-4">
+              Creator #{inviteModal.creatorId} — enter the fee (₦) you'll pay this creator for the campaign.
+            </p>
+            <input
+              type="number"
+              placeholder="e.g. 50000"
+              value={feeInput}
+              onChange={(e) => setFeeInput(e.target.value)}
+              className="w-full bg-background border border-border rounded px-3 py-2 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50 mb-4"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const fee = parseFloat(feeInput);
+                  if (!fee || fee <= 0) { toast.error("Enter a valid fee amount"); return; }
+                  acceptMatch.mutate({ scoreId: inviteModal.scoreId, creatorFee: fee });
+                }}
+                disabled={acceptMatch.isPending}
+                className="flex-1 py-2 bg-primary text-primary-foreground font-mono text-[9px] tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {acceptMatch.isPending ? "SENDING..." : "CONFIRM INVITE"}
+              </button>
+              <button
+                onClick={() => setInviteModal(null)}
+                className="px-4 py-2 border border-border font-mono text-[9px] tracking-widest text-muted-foreground hover:text-foreground rounded"
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

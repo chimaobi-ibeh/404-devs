@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
-import { Eye, Flag, Filter, MessageSquare, CreditCard, CheckCircle2, XCircle } from "lucide-react";
+import { Eye, Flag, Filter, MessageSquare, CreditCard, CheckCircle2, XCircle, X } from "lucide-react";
+import { toast } from "sonner";
 
 type TabKey = "ROSTER" | "CONTENT" | "ANALYTICS" | "PAYOUTS";
 
@@ -28,6 +29,9 @@ export default function CampaignDetail() {
   const [location, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<TabKey>("ROSTER");
   const [paymentBanner, setPaymentBanner] = useState<"success" | "failed" | null>(null);
+  const [disputeModal, setDisputeModal] = useState<{ rosterId?: number } | null>(null);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputeDesc, setDisputeDesc] = useState("");
 
   // Read ?payment= query param set by the Interswitch callback
   useEffect(() => {
@@ -57,6 +61,16 @@ export default function CampaignDetail() {
 
   const startConversation = trpc.messaging.startConversation.useMutation({
     onSuccess: () => setLocation("/messages"),
+  });
+
+  const createDispute = trpc.advertiser.createDispute.useMutation({
+    onSuccess: () => {
+      toast.success("Dispute filed. Admin will review within 24 hours.");
+      setDisputeModal(null);
+      setDisputeReason("");
+      setDisputeDesc("");
+    },
+    onError: (e) => toast.error(e.message),
   });
 
   const tabs: TabKey[] = ["ROSTER", "CONTENT", "ANALYTICS", "PAYOUTS"];
@@ -216,7 +230,7 @@ export default function CampaignDetail() {
                         </div>
 
                         {/* Fee */}
-                        <p className="font-mono text-sm text-foreground font-bold">${entry.creatorFee}</p>
+                        <p className="font-mono text-sm text-foreground font-bold">₦{entry.creatorFee}</p>
 
                         {/* Actions */}
                         <div className="flex items-center gap-3">
@@ -236,7 +250,8 @@ export default function CampaignDetail() {
                             <MessageSquare className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            title="Report creator"
+                            title="Report / open dispute"
+                            onClick={() => setDisputeModal({ rosterId: entry.id })}
                             className="text-muted-foreground hover:text-destructive transition-colors"
                           >
                             <Flag className="w-3.5 h-3.5" />
@@ -318,11 +333,11 @@ export default function CampaignDetail() {
                     </div>
                     <div className="space-y-1">
                       <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">Total Spent</p>
-                      <p className="font-mono text-2xl text-foreground font-bold">${analytics.totalSpent}</p>
+                      <p className="font-mono text-2xl text-foreground font-bold">₦{analytics.totalSpent}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">Total Budget</p>
-                      <p className="font-mono text-2xl text-foreground font-bold">${analytics.totalBudget}</p>
+                      <p className="font-mono text-2xl text-foreground font-bold">₦{analytics.totalBudget}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">Avg Engagement</p>
@@ -363,7 +378,7 @@ export default function CampaignDetail() {
               <div className="h-px bg-border" />
               <div>
                 <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-1">BUDGET</p>
-                <p className="font-mono text-xl text-foreground font-bold">${campaign.budget}</p>
+                <p className="font-mono text-xl text-foreground font-bold">₦{campaign.budget}</p>
               </div>
               <div>
                 <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-1">STATUS</p>
@@ -400,6 +415,55 @@ export default function CampaignDetail() {
           </div>
         </div>
       </div>
+
+      {/* Dispute Modal */}
+      {disputeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm">
+            <div className="flex items-center justify-between mb-4">
+              <p className="font-mono text-xs text-foreground font-bold tracking-widest">FILE A DISPUTE</p>
+              <button onClick={() => setDisputeModal(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="font-mono text-[9px] text-muted-foreground mb-4">
+              Disputes are reviewed by the Vyral admin team within 24 hours.
+            </p>
+            <input
+              type="text"
+              placeholder="Reason (e.g. Content not delivered)"
+              value={disputeReason}
+              onChange={(e) => setDisputeReason(e.target.value)}
+              className="w-full bg-background border border-border rounded px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50 mb-3"
+            />
+            <textarea
+              placeholder="Describe the issue in detail…"
+              value={disputeDesc}
+              onChange={(e) => setDisputeDesc(e.target.value)}
+              rows={3}
+              className="w-full bg-background border border-border rounded px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50 resize-none mb-4"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (!disputeReason.trim()) { toast.error("Please enter a reason"); return; }
+                  createDispute.mutate({ campaignId, rosterId: disputeModal.rosterId, reason: disputeReason, description: disputeDesc || undefined });
+                }}
+                disabled={createDispute.isPending}
+                className="flex-1 py-2 bg-destructive text-destructive-foreground font-mono text-[9px] tracking-widest rounded hover:bg-destructive/90 transition-colors disabled:opacity-50"
+              >
+                {createDispute.isPending ? "FILING..." : "FILE DISPUTE"}
+              </button>
+              <button
+                onClick={() => setDisputeModal(null)}
+                className="px-4 py-2 border border-border font-mono text-[9px] tracking-widest text-muted-foreground hover:text-foreground rounded"
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

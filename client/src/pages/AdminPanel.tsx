@@ -17,6 +17,7 @@ export default function AdminPanel() {
   const { data: analytics } = trpc.admin.getDashboard.useQuery();
   const { data: disputes, refetch: refetchDisputes } = trpc.admin.getDisputes.useQuery({ limit: 50, offset: 0 });
   const { data: pendingCreators, refetch: refetchPending } = trpc.admin.getPendingCreators.useQuery();
+  const { data: adminLogs } = trpc.admin.getLogs.useQuery({ limit: 20 });
   const activeTab = routeToTab(location);
   const [selectedDisputeId, setSelectedDisputeId] = useState<number | null>(null);
   const [resolutionText, setResolutionText] = useState("");
@@ -64,7 +65,7 @@ export default function AdminPanel() {
             <div>
               <p className="font-mono text-[8px] text-muted-foreground tracking-widest">TOTAL VOLUME</p>
               <p className="font-mono text-lg text-foreground font-bold">
-                ${((stats.platformRevenue ?? 0) / 1000000).toFixed(1)}M
+                ₦{((stats.platformRevenue ?? 0) / 1000000).toFixed(1)}M
               </p>
             </div>
           </div>
@@ -138,7 +139,7 @@ export default function AdminPanel() {
                     {[
                       { label: "TOTAL USERS", value: stats.totalUsers ?? "—", color: "text-foreground" },
                       { label: "ACTIVE CAMPAIGNS", value: stats.activeCampaigns ?? "—", color: "text-signal" },
-                      { label: "PLATFORM REVENUE", value: `$${(stats.platformRevenue ?? 0).toFixed(2)}`, color: "text-gold" },
+                      { label: "PLATFORM REVENUE", value: `₦${(stats.platformRevenue ?? 0).toFixed(2)}`, color: "text-gold" },
                     ].map((item) => (
                       <div key={item.label} className="flex items-center justify-between px-5 py-3.5">
                         <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">{item.label}</p>
@@ -364,23 +365,26 @@ export default function AdminPanel() {
               </div>
             </div>
 
-            {/* Live Core Logs */}
+            {/* Admin Audit Logs */}
             <div className="bg-black/50 rounded border border-border p-4">
-              <p className="font-mono text-[9px] text-muted-foreground tracking-widest mb-3 uppercase">LIVE_CORE_LOGS</p>
+              <p className="font-mono text-[9px] text-muted-foreground tracking-widest mb-3 uppercase">ADMIN_AUDIT_LOG</p>
               <div className="space-y-2">
-                {[
-                  { tag: "OK", color: "text-signal", msg: "Auth service — all nodes healthy" },
-                  { tag: "WARN", color: "text-gold", msg: "DB query latency spike: 142ms" },
-                  { tag: "OK", color: "text-signal", msg: "Campaign sync complete — 24 records" },
-                  { tag: "INFO", color: "text-muted-foreground", msg: "Rate limit check — 0 violations" },
-                  { tag: "ERROR", color: "text-primary", msg: "Webhook retry: creator/payout #882" },
-                  { tag: "OK", color: "text-signal", msg: "Monitoring cycle complete" },
-                ].map((log, i) => (
-                  <div key={i} className="flex items-start gap-2 font-mono text-[9px]">
-                    <span className={`shrink-0 ${log.color}`}>[{log.tag}]</span>
-                    <span className="text-muted-foreground leading-relaxed">{log.msg}</span>
-                  </div>
-                ))}
+                {adminLogs && adminLogs.length > 0 ? adminLogs.map((log: any) => {
+                  const actionColor =
+                    log.action?.includes("verified") || log.action?.includes("resolved") ? "text-signal" :
+                    log.action?.includes("rejected") || log.action?.includes("closed") ? "text-primary" :
+                    "text-muted-foreground";
+                  return (
+                    <div key={log.id} className="flex items-start gap-2 font-mono text-[9px]">
+                      <span className={`shrink-0 ${actionColor}`}>[{log.action?.toUpperCase().replace(/_/g, " ")}]</span>
+                      <span className="text-muted-foreground leading-relaxed">
+                        {log.entityType} #{log.entityId} — {new Date(log.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                  );
+                }) : (
+                  <p className="font-mono text-[9px] text-muted-foreground">No admin actions recorded yet.</p>
+                )}
               </div>
             </div>
 
@@ -396,7 +400,7 @@ export default function AdminPanel() {
               </div>
               <div>
                 <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase">PLATFORM REVENUE</p>
-                <p className="font-mono text-lg text-signal font-bold">${((stats.platformRevenue ?? 0)).toFixed(2)}</p>
+                <p className="font-mono text-lg text-signal font-bold">₦{((stats.platformRevenue ?? 0)).toFixed(2)}</p>
               </div>
             </div>
           </div>

@@ -97,7 +97,7 @@ export default function BrandProfilePage() {
                       )}
                       {campaign.budget && (
                         <span className="font-mono text-[8px] text-signal">
-                          ${Number(campaign.budget).toLocaleString()} BUDGET
+                          ₦{Number(campaign.budget).toLocaleString()} BUDGET
                         </span>
                       )}
                       {campaign.deadline && (

@@ -87,16 +87,16 @@ export default function CreatorDashboard() {
           <div className="md:col-span-2 bg-card border border-border rounded-lg p-4 md:p-6">
             <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-2">CUMULATIVE EARNINGS</p>
             <div className="flex items-baseline gap-3 mb-4">
-              <p className="font-mono text-5xl text-signal font-bold">${totalEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+              <p className="font-mono text-5xl text-signal font-bold">₦{totalEarnings.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</p>
             </div>
             <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
               <div>
                 <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-1">AVAILABLE FOR PAYOUT</p>
-                <p className="font-mono text-xl text-foreground font-bold">${availableEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                <p className="font-mono text-xl text-foreground font-bold">₦{availableEarnings.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</p>
               </div>
               <div>
                 <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-1">PENDING CLEARANCE</p>
-                <p className="font-mono text-xl text-muted-foreground font-bold">${pendingEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                <p className="font-mono text-xl text-muted-foreground font-bold">₦{pendingEarnings.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>
@@ -209,7 +209,7 @@ export default function CreatorDashboard() {
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-mono text-[7px] border border-border rounded px-1.5 py-0.5 text-muted-foreground tracking-widest uppercase">{gig.category}</span>
                     <span className="font-mono text-[7px] border border-border rounded px-1.5 py-0.5 text-muted-foreground tracking-widest uppercase">{gig.contentType?.replace("_"," ")}</span>
-                    <span className="font-mono text-[8px] text-signal border border-signal/30 rounded px-1.5 py-0.5 ml-auto">${Number(gig.budget).toLocaleString()}</span>
+                    <span className="font-mono text-[8px] text-signal border border-signal/30 rounded px-1.5 py-0.5 ml-auto">₦{Number(gig.budget).toLocaleString()}</span>
                   </div>
                   {/* Title + desc */}
                   <div>

@@ -36,7 +36,7 @@ export default function BrandDashboard() {
           <div className="bg-card border border-border rounded-lg p-5">
             <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">TOTAL BUDGET</p>
             <p className="font-mono text-2xl text-signal font-bold">
-              ${totalBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              ₦{totalBudget.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
             </p>
           </div>
 
@@ -116,7 +116,7 @@ export default function BrandDashboard() {
 
                       {/* Budget */}
                       <div className="text-right shrink-0">
-                        <p className="font-mono text-sm text-signal font-bold">${Number(campaign.budget).toLocaleString()}</p>
+                        <p className="font-mono text-sm text-signal font-bold">₦{Number(campaign.budget).toLocaleString()}</p>
                         <p className="font-mono text-[8px] text-muted-foreground">BUDGET</p>
                       </div>
 
@@ -155,7 +155,7 @@ export default function BrandDashboard() {
                 </div>
                 <div className="flex items-start gap-2 font-mono text-[10px]">
                   <span className="shrink-0 text-muted-foreground">[INFO]</span>
-                  <span className="text-muted-foreground">Total allocated budget: ${totalBudget.toLocaleString()}</span>
+                  <span className="text-muted-foreground">Total allocated budget: ₦{totalBudget.toLocaleString()}</span>
                 </div>
               </div>
             </div>

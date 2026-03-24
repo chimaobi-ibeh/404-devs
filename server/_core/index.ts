@@ -12,6 +12,7 @@ import {
   processGracePeriodExpirations,
   processAutoApprovals,
   processNoShows,
+  processPendingPayouts,
 } from "../monitoring";
 import { storagePut } from "../storage";
 import { sdk } from "./sdk";
@@ -152,6 +153,51 @@ async function startServer() {
     }
   });
 
+  // ── Pro subscription payment callback ─────────────────────────────────────
+  app.get("/api/payment/pro-callback", async (req, res) => {
+    const txnRef = req.query.txnref as string | undefined;
+    const responseCode = req.query.responseCode as string | undefined;
+
+    if (!txnRef) {
+      res.redirect("/creator/earnings?pro=error&reason=missing_ref");
+      return;
+    }
+
+    try {
+      const { getPaymentByRef, updatePaymentStatus } = await import("../db");
+      const { verifyPayment } = await import("../interswitch");
+      const dbModule = await import("../db");
+
+      const payment = await getPaymentByRef(txnRef);
+      if (!payment) {
+        res.redirect("/creator/earnings?pro=error&reason=not_found");
+        return;
+      }
+
+      const verified = responseCode === "00"
+        ? await verifyPayment(txnRef, Number(payment.amount))
+        : { success: false };
+
+      if (verified.success) {
+        await updatePaymentStatus(payment.id, "completed");
+        // Activate the pending subscription for this creator
+        const pending = await dbModule.getPendingProSubscriptionByAdvertiserId(payment.advertiserId);
+        if (pending) {
+          await dbModule.activateProSubscription(pending.id);
+          // Mark creator isPro
+          await dbModule.setCreatorPro(payment.advertiserId, true);
+        }
+        res.redirect("/creator/earnings?pro=success");
+      } else {
+        await updatePaymentStatus(payment.id, "failed");
+        res.redirect("/creator/earnings?pro=failed");
+      }
+    } catch (err: any) {
+      console.error("[Pro callback]", err?.message);
+      res.redirect("/creator/earnings?pro=error&reason=server_error");
+    }
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",
@@ -215,6 +261,11 @@ function startBackgroundJobProcessor() {
       await processNoShows();
     } catch (err) {
       console.error("[Jobs] processNoShows failed:", err);
+    }
+    try {
+      await processPendingPayouts();
+    } catch (err) {
+      console.error("[Jobs] processPendingPayouts failed:", err);
     }
   }
 

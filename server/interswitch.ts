@@ -32,7 +32,7 @@ const CURRENCY_NGN  = "566";
 export const interswitchConfig = {
   merchantCode: MERCHANT_CODE,
   payItemId: PAY_ITEM_ID,
-  platformFeePercentage: 0.2, // 20%
+  platformFeePercentage: 0.05, // 5%
   proSubscriptionPrice: 1200, // ₦1,200/month
 };
 

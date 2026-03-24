@@ -6,7 +6,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import * as db from "./db";
 import { calculateVyralMatchScore, calculateCreatorTier } from "./vyralMatch";
-import { initializePayment as interswitchInitPayment } from "./interswitch";
+import { initializePayment as interswitchInitPayment, interswitchConfig } from "./interswitch";
 import { createMonitoringJob } from "./monitoring";
 import {
   notifyContentApproved,
@@ -134,7 +134,15 @@ const advertiserRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const platformFee = input.budget * 0.2;
+      // Pro gating: free advertisers limited to 3 active/draft campaigns
+      const activeCampaignCount = await db.getAdvertiserActiveCampaignCount(ctx.user.id);
+      if (activeCampaignCount >= 3) {
+        // Check if they have a pro subscription (via advertiser profile — use isPro flag indirectly)
+        // For advertisers we gate at 3; Pro advertisers get unlimited
+        // (advertiser pro subscription is separate — for now check count only at 3, no advertiser pro yet)
+        throw new TRPCError({ code: "FORBIDDEN", message: "Free accounts are limited to 3 active campaigns. Contact support to upgrade." });
+      }
+      const platformFee = input.budget * 0.05;
       return db.createCampaign({
         advertiserId: ctx.user.id,
         title: input.title,
@@ -353,6 +361,28 @@ const advertiserRouter = router({
       return db.getContentSubmissionsForCampaign(input.campaignId);
     }),
 
+  createDispute: protectedProcedure
+    .input(z.object({
+      campaignId: z.number(),
+      rosterId: z.number().optional(),
+      reason: z.string().min(1),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const campaign = await db.getCampaign(input.campaignId);
+      if (!campaign || campaign.advertiserId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      return db.createDispute({
+        campaignId: input.campaignId,
+        rosterId: input.rosterId ?? null,
+        advertiserId: ctx.user.id,
+        reason: input.reason,
+        description: input.description ?? null,
+        status: "open",
+      });
+    }),
+
   acceptRosterEntry: protectedProcedure
     .input(z.object({ rosterId: z.number(), creatorFee: z.number() }))
     .mutation(async ({ ctx, input }) => {
@@ -473,6 +503,13 @@ const creatorRouter = router({
       const creatorProfile = await db.getCreatorProfile(ctx.user.id);
       if (!creatorProfile) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Creator profile not found" });
+      }
+      // Pro gating: free creators limited to 3 active applications
+      if (!creatorProfile.isPro) {
+        const activeCount = await db.getCreatorActiveApplicationCount(creatorProfile.id);
+        if (activeCount >= 3) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Free accounts are limited to 3 active campaign applications. Upgrade to Pro for unlimited applications." });
+        }
       }
       const campaign = await db.getCampaign(input.campaignId);
       if (!campaign) throw new TRPCError({ code: "NOT_FOUND" });
@@ -659,23 +696,44 @@ const creatorRouter = router({
     return db.getCreatorSubscription(creatorProfile.id);
   }),
 
-  upgradeToPro: protectedProcedure.mutation(async ({ ctx }) => {
-    const creatorProfile = await db.getCreatorProfile(ctx.user.id);
-    if (!creatorProfile) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "Creator profile not found" });
-    }
-    // NOTE: Stripe subscription creation is wired in stripe.ts.
-    // This record is set to "active" only after Stripe confirms payment via webhook.
-    // For now the record is created as "active" in test mode; replace with
-    // createProSubscription() + webhook confirmation in production.
-    return db.createCreatorSubscription({
-      creatorId: creatorProfile.id,
-      planType: "pro",
-      startDate: new Date(),
-      autoRenew: true,
-      status: "active",
-    });
-  }),
+  upgradeToPro: protectedProcedure
+    .input(z.object({ callbackUrl: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const creatorProfile = await db.getCreatorProfile(ctx.user.id);
+      if (!creatorProfile) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Creator profile not found" });
+      }
+      if (creatorProfile.isPro) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Already a Pro member" });
+      }
+      // Create a pending subscription record
+      await db.createCreatorSubscription({
+        creatorId: creatorProfile.id,
+        planType: "pro",
+        startDate: new Date(),
+        autoRenew: true,
+        status: "pending_payment",
+      });
+      // Initiate Interswitch payment for ₦1,200/month
+      const { transactionRef, redirectUrl } = await interswitchInitPayment(
+        creatorProfile.id,
+        interswitchConfig.proSubscriptionPrice,
+        ctx.user.email ?? "",
+        ctx.user.name ?? ctx.user.email ?? "",
+        input.callbackUrl
+      );
+      // Store payment record (reuse payments table, advertiserId = userId)
+      await db.createPayment({
+        campaignId: 0, // 0 = pro subscription, not a campaign
+        advertiserId: ctx.user.id,
+        amount: String(interswitchConfig.proSubscriptionPrice),
+        platformFee: "0",
+        status: "pending",
+        stripePaymentIntentId: transactionRef,
+        paymentMethod: "interswitch",
+      });
+      return { transactionRef, redirectUrl };
+    }),
 
   // Notifications for the logged-in user
   getNotifications: protectedProcedure
@@ -755,6 +813,13 @@ const creatorRouter = router({
     .mutation(async ({ ctx, input }) => {
       const profile = await db.getCreatorProfile(ctx.user.id);
       if (!profile) throw new TRPCError({ code: "BAD_REQUEST" });
+      // Pro gating: free creators limited to 5 portfolio items
+      if (!profile.isPro) {
+        const count = await db.getCreatorPortfolioCount(profile.id);
+        if (count >= 5) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Free accounts are limited to 5 portfolio items. Upgrade to Pro for unlimited." });
+        }
+      }
       return db.addPortfolioItem({
         creatorId: profile.id,
         brand: input.brand,
@@ -808,6 +873,76 @@ const creatorRouter = router({
   getBankAccount: protectedProcedure.query(async ({ ctx }) => {
     return db.getCreatorBankDetails(ctx.user.id);
   }),
+
+  requestPayout: protectedProcedure.mutation(async ({ ctx }) => {
+    const creatorProfile = await db.getCreatorProfile(ctx.user.id);
+    if (!creatorProfile) throw new TRPCError({ code: "BAD_REQUEST", message: "Creator profile not found" });
+
+    const bank = await db.getCreatorBankDetails(ctx.user.id);
+    if (!bank) throw new TRPCError({ code: "BAD_REQUEST", message: "No bank account on file. Add your bank details first." });
+
+    // Find all pending payouts whose release date has passed
+    const releasedPayouts = await db.getReleasedPendingPayouts(50);
+    const myPayouts = releasedPayouts.filter((p) => p.creatorId === creatorProfile.id);
+
+    if (myPayouts.length === 0) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "No payouts are ready for release yet." });
+    }
+
+    const { disburseToBankAccount } = await import("./interswitch");
+    const totalAmount = myPayouts.reduce((sum, p) => sum + Number(p.amount), 0);
+
+    // Mark all as processing
+    for (const p of myPayouts) await db.updatePayoutStatus(p.id, "processing");
+
+    const result = await disburseToBankAccount(
+      bank.accountNumber,
+      bank.bankCode,
+      bank.accountName,
+      totalAmount,
+      `Vyral payout — ₦${totalAmount.toLocaleString()}`,
+      myPayouts[0].id
+    );
+
+    if (result.success) {
+      for (const p of myPayouts) {
+        await db.updatePayoutStatus(p.id, "completed");
+        if (result.reference) await db.updatePayoutTransferRef(p.id, result.reference);
+      }
+    } else {
+      for (const p of myPayouts) await db.updatePayoutStatus(p.id, "failed");
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: result.message ?? "Disbursement failed" });
+    }
+
+    return { success: true, amount: totalAmount, reference: result.reference };
+  }),
+
+  createDispute: protectedProcedure
+    .input(z.object({
+      campaignId: z.number(),
+      rosterId: z.number().optional(),
+      reason: z.string().min(1),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const creatorProfile = await db.getCreatorProfile(ctx.user.id);
+      if (!creatorProfile) throw new TRPCError({ code: "BAD_REQUEST", message: "Creator profile not found" });
+      // Verify creator is on this campaign's roster
+      const roster = await db.getCampaignRoster(input.campaignId);
+      const onRoster = roster.some((r) => r.creatorId === creatorProfile.id);
+      if (!onRoster) throw new TRPCError({ code: "FORBIDDEN" });
+      const campaign = await db.getCampaign(input.campaignId);
+      if (!campaign) throw new TRPCError({ code: "NOT_FOUND" });
+      return db.createDispute({
+        campaignId: input.campaignId,
+        rosterId: input.rosterId ?? null,
+        advertiserId: campaign.advertiserId,
+        creatorId: creatorProfile.id,
+        reason: input.reason,
+        description: input.description ?? null,
+        status: "open",
+      });
+    }),
 });
 
 // ============================================================================
@@ -857,10 +992,20 @@ const vyralMatchRouter = router({
   acceptMatch: protectedProcedure
     .input(z.object({ scoreId: z.number(), creatorFee: z.number().positive() }))
     .mutation(async ({ ctx, input }) => {
-      const scores = await db.getVyralMatchScores(0); // placeholder; should look up by scoreId
-      // Add matched creator to the campaign roster
-      // (full implementation requires a getVyralMatchScoreById query)
-      return { success: true };
+      const score = await db.getVyralMatchScoreById(input.scoreId);
+      if (!score) throw new TRPCError({ code: "NOT_FOUND" });
+      const campaign = await db.getCampaign(score.campaignId);
+      if (!campaign || campaign.advertiserId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      // Add the matched creator to the roster as an invitation
+      return db.addCreatorToRoster({
+        campaignId: score.campaignId,
+        creatorId: score.creatorId,
+        castingMode: "vyral_match",
+        creatorFee: String(input.creatorFee),
+        status: "invited",
+      });
     }),
 });
 
@@ -985,6 +1130,14 @@ const adminRouter = router({
           await notifyVerificationRejected(creator.userId, input.rejectionReason);
         }
       }
+      // Audit log
+      await db.createAdminLog({
+        adminId: ctx.user.id,
+        action: input.verified ? "creator_verified" : "creator_rejected",
+        entityType: "creator",
+        entityId: input.creatorId,
+        details: input.rejectionReason ? JSON.stringify({ reason: input.rejectionReason }) : null,
+      });
       return { success: true };
     }),
 
@@ -1009,7 +1162,15 @@ const adminRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
-      return db.resolveDispute(input.disputeId, input.resolution, input.status, ctx.user.id);
+      const result = await db.resolveDispute(input.disputeId, input.resolution, input.status, ctx.user.id);
+      await db.createAdminLog({
+        adminId: ctx.user.id,
+        action: `dispute_${input.status}`,
+        entityType: "dispute",
+        entityId: input.disputeId,
+        details: JSON.stringify({ resolution: input.resolution }),
+      });
+      return result;
     }),
 
   verifySocialAccount: protectedProcedure
@@ -1018,8 +1179,34 @@ const adminRouter = router({
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
       const status = input.verified ? "verified" : "rejected";
       await db.updateSocialAccountVerification(input.accountId, status);
+      await db.createAdminLog({
+        adminId: ctx.user.id,
+        action: `social_account_${status}`,
+        entityType: "social_account",
+        entityId: input.accountId,
+        details: null,
+      });
       return { success: true };
     }),
+
+  getLogs: protectedProcedure
+    .input(z.object({ limit: z.number().default(20) }))
+    .query(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      return db.getRecentAdminLogs(input.limit);
+    }),
+
+  getSystemHealth: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+    const stats = await db.getAdminStats();
+    const pendingCreators = await db.getPendingCreators(100);
+    const disputes = await db.getDisputesList(100, 0);
+    return {
+      ...stats,
+      pendingVerifications: pendingCreators.length,
+      openDisputes: disputes.filter((d: any) => d.status === "open").length,
+    };
+  }),
 });
 
 // ============================================================================

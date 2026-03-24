@@ -207,7 +207,7 @@ export default function Home() {
           <div>
             <p className="text-xs tracking-widest uppercase text-muted-foreground mb-3">Creator Payouts</p>
             <p className="font-mono text-4xl font-bold text-gold">
-              <Counter target={128} prefix="$" suffix="M+" />
+              <Counter target={128} prefix="₦" suffix="M+" />
             </p>
             <div className="mt-3 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
           </div>
@@ -249,7 +249,7 @@ export default function Home() {
           <div className="mt-8 bg-background rounded-xl p-5 border border-border">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs text-muted-foreground tracking-widest uppercase">Current Balance</span>
-              <span className="font-mono text-signal font-bold">+$2,450.00</span>
+              <span className="font-mono text-signal font-bold">+₦2,450.00</span>
             </div>
             <div className="flex items-end gap-2 h-12">
               {[3, 5, 4, 7, 6, 8, 10].map((h, i) => (
