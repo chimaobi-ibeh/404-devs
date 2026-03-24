@@ -6,7 +6,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import * as db from "./db";
 import { calculateVyralMatchScore, calculateCreatorTier } from "./vyralMatch";
-import { initializeStripePayment } from "./stripe";
+import { initializePayment as interswitchInitPayment } from "./interswitch";
 import { createMonitoringJob } from "./monitoring";
 import {
   notifyContentApproved,
@@ -260,15 +260,43 @@ const advertiserRouter = router({
       return { success: true };
     }),
 
-  initiateCampaignPayment: protectedProcedure
-    .input(z.object({ campaignId: z.number() }))
+  fundCampaign: protectedProcedure
+    .input(z.object({
+      campaignId: z.number(),
+      callbackUrl: z.string(), // full URL the browser returns to after payment
+    }))
     .mutation(async ({ ctx, input }) => {
       const campaign = await db.getCampaign(input.campaignId);
       if (!campaign || campaign.advertiserId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
+      if (campaign.status !== "draft") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Campaign is already funded or active" });
+      }
+
+      const advertiser = await db.getAdvertiserProfile(ctx.user.id);
       const totalAmount = Number(campaign.budget) + Number(campaign.platformFee);
-      return initializeStripePayment(totalAmount, campaign.id);
+
+      const { transactionRef, redirectUrl } = await interswitchInitPayment(
+        campaign.id,
+        totalAmount,
+        ctx.user.email ?? "",
+        advertiser?.companyName ?? ctx.user.name ?? ctx.user.email ?? "",
+        input.callbackUrl
+      );
+
+      // Record the pending payment
+      await db.createPayment({
+        campaignId: campaign.id,
+        advertiserId: ctx.user.id,
+        amount: String(totalAmount),
+        platformFee: String(campaign.platformFee),
+        status: "pending",
+        stripePaymentIntentId: transactionRef, // reusing column for Interswitch ref
+        paymentMethod: "interswitch",
+      });
+
+      return { transactionRef, redirectUrl };
     }),
 
   launchCampaign: protectedProcedure
@@ -289,16 +317,28 @@ const advertiserRouter = router({
       description: z.string().optional(),
       budget: z.number().optional(),
       deadline: z.string().optional(),
+      castingMode: z.enum(["hand_pick", "open_call", "vyral_match", "hybrid"]).optional(),
+      category: z.enum(["music", "app", "brand", "event", "challenge"]).optional(),
+      contentType: z.enum(["video", "story", "reel", "hashtag", "dance_challenge", "trend", "review"]).optional(),
+      deliverables: z.string().optional(),
+      contentDos: z.string().optional(),
+      contentDonts: z.string().optional(),
+      postingWindowStart: z.string().optional(),
+      postingWindowEnd: z.string().optional(),
+      targetPlatforms: z.array(z.string()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const campaign = await db.getCampaign(input.campaignId);
       if (!campaign) throw new TRPCError({ code: "NOT_FOUND" });
       if (campaign.advertiserId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-      const { campaignId, deadline, budget, ...rest } = input;
+      const { campaignId, deadline, budget, postingWindowStart, postingWindowEnd, targetPlatforms, ...rest } = input;
       return db.updateCampaign(campaignId, {
         ...rest,
         ...(budget !== undefined ? { budget: String(budget) } : {}),
         ...(deadline !== undefined ? { deadline: new Date(deadline) } : {}),
+        ...(postingWindowStart !== undefined ? { postingWindowStart: new Date(postingWindowStart) } : {}),
+        ...(postingWindowEnd !== undefined ? { postingWindowEnd: new Date(postingWindowEnd) } : {}),
+        ...(targetPlatforms !== undefined ? { targetPlatforms: JSON.stringify(targetPlatforms) } : {}),
       });
     }),
 
@@ -749,6 +789,25 @@ const creatorRouter = router({
     .query(async ({ input }) => {
       return db.getPublicCreatorProfile(input.creatorProfileId);
     }),
+
+  updateBankAccount: protectedProcedure
+    .input(z.object({
+      bankCode: z.string().min(1),
+      accountNumber: z.string().min(10).max(10),
+      accountName: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await db.updateCreatorBankDetails(ctx.user.id, {
+        bankCode: input.bankCode,
+        accountNumber: input.accountNumber,
+        accountName: input.accountName,
+      });
+      return { success: true };
+    }),
+
+  getBankAccount: protectedProcedure.query(async ({ ctx }) => {
+    return db.getCreatorBankDetails(ctx.user.id);
+  }),
 });
 
 // ============================================================================

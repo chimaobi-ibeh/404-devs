@@ -570,6 +570,51 @@ export async function updatePayoutStatus(payoutId: number, status: string) {
   await db.update(payouts).set({ status }).where(eq(payouts.id, payoutId));
 }
 
+export async function updatePayoutTransferRef(payoutId: number, ref: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(payouts).set({ stripeTransferId: ref }).where(eq(payouts.id, payoutId));
+}
+
+export async function getPaymentByRef(ref: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(payments).where(eq(payments.stripePaymentIntentId, ref)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function updatePaymentStatus(paymentId: number, status: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(payments).set({ status }).where(eq(payments.id, paymentId));
+}
+
+/** Store creator bank details as JSON in the stripeConnectId column */
+export async function updateCreatorBankDetails(
+  userId: number,
+  bankDetails: { bankCode: string; accountNumber: string; accountName: string }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .update(creatorProfiles)
+    .set({ stripeConnectId: JSON.stringify(bankDetails) })
+    .where(eq(creatorProfiles.userId, userId));
+}
+
+export async function getCreatorBankDetails(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [profile] = await db
+    .select({ stripeConnectId: creatorProfiles.stripeConnectId })
+    .from(creatorProfiles)
+    .where(eq(creatorProfiles.userId, userId))
+    .limit(1);
+  if (!profile?.stripeConnectId) return null;
+  try { return JSON.parse(profile.stripeConnectId) as { bankCode: string; accountNumber: string; accountName: string }; }
+  catch { return null; }
+}
+
 // ============================================================================
 // VYRAL MATCH SCORES
 // ============================================================================

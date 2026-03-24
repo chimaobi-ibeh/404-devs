@@ -200,45 +200,43 @@ export default function CreatorDashboard() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {openCampaigns.slice(0, 3).map((gig) => (
-                <div key={gig.id} className="bg-card border border-border rounded-lg overflow-hidden hover:border-primary/30 transition-colors flex flex-col">
-                  <button
-                    onClick={() => setLocation(`/creator/campaigns/${gig.id}`)}
-                    className="relative h-32 bg-muted flex items-center justify-center w-full text-left"
-                  >
-                    <span className="font-mono text-[9px] text-muted-foreground">CAMPAIGN VISUAL</span>
-                    <div className="absolute top-2 right-2">
-                      <span className="font-mono text-[7px] border border-border bg-background/80 rounded px-1.5 py-0.5 text-muted-foreground uppercase">
-                        {gig.category}
-                      </span>
-                    </div>
-                    <div className="absolute bottom-2 right-2">
-                      <span className="font-mono text-[8px] text-signal bg-background/80 border border-signal/30 rounded px-1.5 py-0.5">
-                        ${Number(gig.budget).toLocaleString()} BUDGET
-                      </span>
-                    </div>
-                  </button>
-                  <div className="p-4 flex flex-col flex-1">
-                    <button onClick={() => setLocation(`/creator/campaigns/${gig.id}`)} className="text-left">
-                      <h3 className="font-display text-lg tracking-wider text-foreground mb-1 uppercase hover:text-primary transition-colors">{gig.title}</h3>
+                <div
+                  key={gig.id}
+                  className="bg-card border border-border rounded-lg p-4 hover:border-primary/30 transition-colors flex flex-col gap-3 cursor-pointer"
+                  onClick={() => setLocation(`/creator/campaigns/${gig.id}`)}
+                >
+                  {/* Tags */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-mono text-[7px] border border-border rounded px-1.5 py-0.5 text-muted-foreground tracking-widest uppercase">{gig.category}</span>
+                    <span className="font-mono text-[7px] border border-border rounded px-1.5 py-0.5 text-muted-foreground tracking-widest uppercase">{gig.contentType?.replace("_"," ")}</span>
+                    <span className="font-mono text-[8px] text-signal border border-signal/30 rounded px-1.5 py-0.5 ml-auto">${Number(gig.budget).toLocaleString()}</span>
+                  </div>
+                  {/* Title + desc */}
+                  <div>
+                    <h3 className="font-display text-lg tracking-wider text-foreground uppercase mb-1 hover:text-primary transition-colors">{gig.title}</h3>
+                    <p className="font-mono text-[9px] text-muted-foreground leading-relaxed line-clamp-2">{gig.description ?? "No description provided."}</p>
+                  </div>
+                  {/* Deadline */}
+                  <p className="font-mono text-[8px] text-muted-foreground">
+                    Deadline: {new Date(gig.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                  {/* Actions */}
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleApply(gig.id)}
+                      disabled={applyToCampaign.isPending}
+                      className="flex-1 py-2 bg-primary text-primary-foreground font-mono text-[8px] tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-60"
+                    >
+                      {profile?.verificationStatus !== "verified" ? (
+                        <span className="flex items-center justify-center gap-1"><Lock className="w-3 h-3" /> APPLY</span>
+                      ) : "APPLY"}
                     </button>
-                    <p className="font-mono text-[9px] text-muted-foreground leading-relaxed mb-3 line-clamp-2">{gig.description ?? "No description provided."}</p>
-                    <div className="flex gap-2 mt-auto">
-                      <button
-                        onClick={() => handleApply(gig.id)}
-                        disabled={applyToCampaign.isPending}
-                        className="flex-1 py-2 bg-primary text-primary-foreground font-mono text-[8px] tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-60"
-                      >
-                        {profile?.verificationStatus !== "verified" ? (
-                          <span className="flex items-center justify-center gap-1"><Lock className="w-3 h-3" /> APPLY</span>
-                        ) : "APPLY"}
-                      </button>
-                      <button
-                        onClick={() => setLocation(`/creator/campaigns/${gig.id}`)}
-                        className="px-3 py-2 border border-border font-mono text-[8px] tracking-widest text-muted-foreground hover:border-foreground hover:text-foreground rounded transition-colors"
-                      >
-                        VIEW →
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setLocation(`/creator/campaigns/${gig.id}`)}
+                      className="px-3 py-2 border border-border font-mono text-[8px] tracking-widest text-muted-foreground hover:border-foreground hover:text-foreground rounded transition-colors"
+                    >
+                      VIEW →
+                    </button>
                   </div>
                 </div>
               ))}

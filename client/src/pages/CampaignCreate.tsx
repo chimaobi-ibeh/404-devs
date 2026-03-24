@@ -1,44 +1,123 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useLocation } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function CampaignCreate() {
   const [, setLocation] = useLocation();
+
+  // Detect edit mode
+  const [, editParams] = useRoute("/brand/campaigns/:id/edit");
+  const editId = editParams?.id ? parseInt(editParams.id) : null;
+  const isEdit = editId !== null;
+
   const [formData, setFormData] = useState<any>({
     castingMode: "hybrid",
     category: "brand",
     contentType: "video",
   });
+  const [ready, setReady] = useState(!isEdit); // in create mode, form is immediately ready
+
+  // Load existing campaign for edit mode
+  const { data: existingCampaign } = trpc.advertiser.getCampaign.useQuery(
+    { id: editId! },
+    { enabled: isEdit }
+  );
+
+  // Pre-fill form when campaign data loads
+  useEffect(() => {
+    if (!existingCampaign) return;
+    const c = existingCampaign as any;
+    const toDateStr = (v: any) => (v ? new Date(v).toISOString().slice(0, 10) : "");
+    setFormData({
+      title: c.title ?? "",
+      description: c.description ?? "",
+      category: c.category ?? "brand",
+      contentType: c.contentType ?? "video",
+      budget: c.budget ?? "",
+      deadline: toDateStr(c.deadline),
+      castingMode: c.castingMode ?? "hybrid",
+      deliverables: c.deliverables ?? "",
+      contentDos: c.contentDos ?? "",
+      contentDonts: c.contentDonts ?? "",
+      postingWindowStart: toDateStr(c.postingWindowStart),
+      postingWindowEnd: toDateStr(c.postingWindowEnd),
+      targetPlatforms: (() => {
+        try { return typeof c.targetPlatforms === "string" ? JSON.parse(c.targetPlatforms) : (c.targetPlatforms ?? []); }
+        catch { return []; }
+      })(),
+    });
+    setReady(true);
+  }, [existingCampaign]);
 
   const createCampaign = trpc.advertiser.createCampaign.useMutation({
     onSuccess: (data: any) => {
-      const campaignId = Array.isArray(data) ? data[0]?.id : (data as any)?.id;
+      const campaignId = Array.isArray(data) ? data[0]?.id : data?.id;
       if (campaignId) setLocation(`/brand/campaigns/${campaignId}`);
     },
   });
 
+  const updateCampaign = trpc.advertiser.updateCampaign.useMutation({
+    onSuccess: () => setLocation(`/brand/campaigns/${editId}`),
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    createCampaign.mutate({
-      ...formData,
-      budget: parseFloat(formData.budget),
-      deadline: new Date(formData.deadline),
-      postingWindowStart: formData.postingWindowStart || undefined,
-      postingWindowEnd: formData.postingWindowEnd || undefined,
-      targetPlatforms: formData.targetPlatforms?.length > 0 ? formData.targetPlatforms : undefined,
-    });
+    if (isEdit) {
+      updateCampaign.mutate({
+        campaignId: editId!,
+        title: formData.title,
+        description: formData.description,
+        budget: formData.budget ? parseFloat(formData.budget) : undefined,
+        deadline: formData.deadline || undefined,
+        castingMode: formData.castingMode,
+        category: formData.category,
+        contentType: formData.contentType,
+        deliverables: formData.deliverables,
+        contentDos: formData.contentDos,
+        contentDonts: formData.contentDonts,
+        postingWindowStart: formData.postingWindowStart || undefined,
+        postingWindowEnd: formData.postingWindowEnd || undefined,
+        targetPlatforms: formData.targetPlatforms?.length > 0 ? formData.targetPlatforms : undefined,
+      });
+    } else {
+      createCampaign.mutate({
+        ...formData,
+        budget: parseFloat(formData.budget),
+        deadline: new Date(formData.deadline),
+        postingWindowStart: formData.postingWindowStart || undefined,
+        postingWindowEnd: formData.postingWindowEnd || undefined,
+        targetPlatforms: formData.targetPlatforms?.length > 0 ? formData.targetPlatforms : undefined,
+      });
+    }
   };
+
+  const isPending = createCampaign.isPending || updateCampaign.isPending;
+  const error = createCampaign.error?.message || updateCampaign.error?.message;
+
+  // Show skeleton while loading edit data
+  if (isEdit && !ready) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12 space-y-4">
+          <div className="h-10 w-64 bg-muted animate-pulse rounded" />
+          <div className="h-96 bg-muted animate-pulse rounded" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12">
-        <h1 className="text-3xl md:text-4xl font-bold mb-6 md:mb-8">Create New Campaign</h1>
+        <h1 className="text-3xl md:text-4xl font-bold mb-6 md:mb-8">
+          {isEdit ? "Edit Campaign" : "Create New Campaign"}
+        </h1>
 
         <Card className="p-4 md:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -111,7 +190,7 @@ export default function CampaignCreate() {
               <div className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="budget">Total Budget ($)</Label>
+                    <Label htmlFor="budget">Total Budget (₦)</Label>
                     <Input
                       id="budget"
                       type="number"
@@ -232,12 +311,20 @@ export default function CampaignCreate() {
               </div>
             </div>
 
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+
             {/* Actions */}
             <div className="flex gap-4 pt-6">
-              <Button type="submit" disabled={createCampaign.isPending}>
-                Create Campaign
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Saving…" : isEdit ? "Save Changes" : "Create Campaign"}
               </Button>
-              <Button variant="outline" onClick={() => setLocation("/brand/dashboard")}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLocation(isEdit ? `/brand/campaigns/${editId}` : "/brand/dashboard")}
+              >
                 Cancel
               </Button>
             </div>

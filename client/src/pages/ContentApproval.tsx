@@ -2,38 +2,68 @@ import { useState } from "react";
 import { useRoute } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
-import { Play, CheckCircle, Circle } from "lucide-react";
-
-const mockBrief = {
-  id: "VY-CA-082",
-  coreMessage: "Showcase the product's speed and reliability in an authentic, creator-native style. Prioritize storytelling over hard-sell.",
-  requirements: [
-    { text: "Product must be shown in use for at least 10 seconds", done: true },
-    { text: "Include verbal call-to-action with discount code", done: true },
-    { text: "Brand logo visible in frame during CTA", done: false },
-    { text: "No competitor brand mentions or logos", done: true },
-  ],
-  visualGuidelines: ["DARK_AESTHETIC", "NO_FILTERS"],
-  revisionUsed: 0,
-  revisionTotal: 1,
-};
+import { CheckCircle, Circle, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function ContentApproval() {
   const [, params] = useRoute("/brand/content-approval/:campaignId");
-  const campaignId = params?.campaignId ?? "unknown";
+  const campaignId = params?.campaignId ? parseInt(params.campaignId) : 0;
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [feedback, setFeedback] = useState("");
+  const [done, setDone] = useState<Record<number, "approved" | "revision">>({});
 
-  const approveContent = trpc.advertiser.approveContent.useMutation();
-  const requestRevision = trpc.advertiser.requestRevision.useMutation();
+  const { data: campaign } = trpc.advertiser.getCampaign.useQuery({ id: campaignId }, { enabled: !!campaignId });
+  const { data: submissions = [], refetch } = trpc.advertiser.getContentSubmissions.useQuery(
+    { campaignId },
+    { enabled: !!campaignId }
+  );
 
-  // Note: actual calls require a submissionId from the loaded submission
-  const handleApprove = () => {
-    // approveContent.mutate({ submissionId: ... });
-  };
+  const approveContent = trpc.advertiser.approveContent.useMutation({
+    onSuccess: () => {
+      setDone((d) => ({ ...d, [sub.id]: "approved" }));
+      setFeedback("");
+      refetch();
+    },
+  });
+  const requestRevision = trpc.advertiser.requestRevision.useMutation({
+    onSuccess: () => {
+      setDone((d) => ({ ...d, [sub.id]: "revision" }));
+      setFeedback("");
+      refetch();
+    },
+  });
 
-  const handleRevision = () => {
-    // requestRevision.mutate({ submissionId: ..., notes: feedback });
-  };
+  const pending = (submissions as any[]).filter((s) => s.draftStatus === "draft_submitted" || s.draftStatus === "pending");
+  const sub = pending[selectedIndex] ?? (submissions as any[])[selectedIndex];
+
+  if (!campaignId) {
+    return (
+      <AppLayout>
+        <div className="p-8 font-mono text-sm text-muted-foreground">INVALID CAMPAIGN</div>
+      </AppLayout>
+    );
+  }
+
+  if ((submissions as any[]).length === 0) {
+    return (
+      <AppLayout>
+        <div className="p-8">
+          <h1 className="font-display text-3xl tracking-wider text-foreground mb-2">REVIEW SUBMISSIONS</h1>
+          <p className="font-mono text-xs text-muted-foreground tracking-widest mb-8">
+            Campaign: <span className="text-foreground">{campaign?.title ?? `#${campaignId}`}</span>
+          </p>
+          <div className="bg-card border border-border rounded-lg p-12 text-center">
+            <p className="font-mono text-xs text-muted-foreground tracking-widest">NO SUBMISSIONS YET</p>
+            <p className="font-mono text-[9px] text-muted-foreground mt-2">
+              Creators will submit their draft content here once they're ready.
+            </p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const allSubs = submissions as any[];
+  const total = allSubs.length;
 
   return (
     <AppLayout>
@@ -41,130 +71,260 @@ export default function ContentApproval() {
         {/* Header */}
         <div className="mb-4 md:mb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-2">
-            <h1 className="font-display text-3xl md:text-4xl tracking-wider text-foreground">REVIEW SUBMISSION</h1>
+            <h1 className="font-display text-3xl md:text-4xl tracking-wider text-foreground">REVIEW SUBMISSIONS</h1>
             <span className="font-mono text-[9px] text-gold border border-gold/40 rounded px-2 py-0.5 tracking-widest">
-              PENDING REVIEW
+              {pending.length} PENDING
             </span>
           </div>
           <p className="font-mono text-xs text-muted-foreground tracking-widest">
-            Creator: <span className="text-foreground">@creator_handle</span> &nbsp;•&nbsp; Campaign ID: {campaignId}
+            Campaign: <span className="text-foreground">{campaign?.title ?? `#${campaignId}`}</span>
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-          {/* Main Panel */}
-          <div className="lg:col-span-2 space-y-4 md:space-y-6">
-            {/* Video Player Placeholder */}
-            <div className="bg-black rounded-lg border border-border overflow-hidden">
-              <div className="relative aspect-video flex items-center justify-center bg-black">
-                <button className="w-16 h-16 rounded-full border-2 border-foreground/30 flex items-center justify-center hover:border-foreground transition-colors group">
-                  <Play className="w-6 h-6 text-foreground/60 group-hover:text-foreground ml-0.5" />
-                </button>
-                <div className="absolute bottom-0 left-0 right-0 px-4 py-3">
-                  {/* Progress bar */}
-                  <div className="h-1 bg-foreground/20 rounded-full overflow-hidden mb-2">
-                    <div className="h-full bg-primary rounded-full w-1/3" />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[9px] text-muted-foreground">0:12</span>
-                    <span className="font-mono text-[9px] text-muted-foreground">0:35</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Proposed Caption */}
-            <div className="bg-card border border-border rounded-lg p-5">
-              <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">PROPOSED CAPTION</p>
-              <div className="border-l-2 border-primary pl-4">
-                <p className="text-sm text-foreground leading-relaxed">
-                  "Finally found a tool that keeps up with my workflow. Real talk — this thing is fast.
-                  Try it free with code CREATOR20 at checkout. Link in bio. 🚀 #sponsored #TechLife #CreatorTools"
-                </p>
-              </div>
-            </div>
-
-            {/* Feedback & Actions */}
-            <div className="bg-card border border-border rounded-lg p-5">
-              <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">FEEDBACK / NOTES</p>
-              <textarea
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                placeholder="Add feedback for the creator (optional for approval, required for revision)..."
-                className="w-full h-24 bg-background border border-border rounded p-3 font-mono text-xs text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-foreground/50"
-              />
-              <div className="flex gap-3 mt-3">
+        {/* Submission selector */}
+        {total > 1 && (
+          <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+            {allSubs.map((s, i) => {
+              const statusColor =
+                s.draftStatus === "approved" ? "border-signal text-signal" :
+                s.draftStatus === "revision_requested" ? "border-gold text-gold" :
+                "border-border text-muted-foreground";
+              return (
                 <button
-                  onClick={handleRevision}
-                  disabled={requestRevision.isPending}
-                  className="flex-1 py-2.5 bg-primary text-primary-foreground font-mono text-xs tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  key={s.id}
+                  onClick={() => { setSelectedIndex(i); setFeedback(""); }}
+                  className={`shrink-0 px-3 py-1.5 rounded border font-mono text-[9px] tracking-widest transition-colors ${
+                    i === selectedIndex ? "bg-primary/10 border-primary text-primary" : statusColor + " hover:border-foreground hover:text-foreground"
+                  }`}
                 >
-                  {requestRevision.isPending ? "REQUESTING..." : "REQUEST REVISION"}
+                  CREATOR #{s.creatorId}
+                  <span className="ml-1.5 opacity-60">{s.draftStatus?.toUpperCase().replace("_", " ") ?? "PENDING"}</span>
                 </button>
-                <button
-                  onClick={handleApprove}
-                  disabled={approveContent.isPending}
-                  className="flex-1 py-2.5 bg-signal text-background font-mono text-xs tracking-widest rounded hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {approveContent.isPending ? "APPROVING..." : "APPROVE SUBMISSION"}
-                </button>
-              </div>
+              );
+            })}
+            <div className="flex items-center gap-1 ml-auto shrink-0">
+              <button
+                onClick={() => setSelectedIndex((i) => Math.max(0, i - 1))}
+                disabled={selectedIndex === 0}
+                className="w-6 h-6 flex items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+              >
+                <ChevronLeft className="w-3 h-3" />
+              </button>
+              <span className="font-mono text-[9px] text-muted-foreground w-10 text-center">
+                {selectedIndex + 1}/{total}
+              </span>
+              <button
+                onClick={() => setSelectedIndex((i) => Math.min(total - 1, i + 1))}
+                disabled={selectedIndex === total - 1}
+                className="w-6 h-6 flex items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+              >
+                <ChevronRight className="w-3 h-3" />
+              </button>
             </div>
           </div>
+        )}
 
-          {/* Right Panel — Campaign Brief */}
-          <div>
-            <div className="bg-card border border-border rounded-lg p-5">
-              <div className="flex items-center justify-between mb-4">
-                <p className="font-mono text-xs text-foreground tracking-widest font-bold">CAMPAIGN BRIEF</p>
-                <span className="font-mono text-[8px] text-muted-foreground tracking-widest">{mockBrief.id}</span>
-              </div>
-
-              {/* Core Message */}
-              <div className="mb-5">
-                <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase mb-2">THE CORE MESSAGE</p>
-                <p className="text-xs text-foreground leading-relaxed">{mockBrief.coreMessage}</p>
-              </div>
-
-              {/* Requirements */}
-              <div className="mb-5">
-                <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase mb-3">MANDATORY REQUIREMENTS</p>
+        {sub && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+            {/* Main Panel */}
+            <div className="lg:col-span-2 space-y-4 md:space-y-6">
+              {/* Submission status */}
+              <div className="bg-card border border-border rounded-lg p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">SUBMISSION DETAILS</p>
+                  <span className={`font-mono text-[8px] border rounded px-2 py-0.5 tracking-widest uppercase ${
+                    sub.draftStatus === "approved" ? "text-signal border-signal/40" :
+                    sub.draftStatus === "revision_requested" ? "text-gold border-gold/40" :
+                    "text-muted-foreground border-border"
+                  }`}>{sub.draftStatus?.replace(/_/g, " ") ?? "PENDING"}</span>
+                </div>
                 <div className="space-y-2">
-                  {mockBrief.requirements.map((req, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      {req.done ? (
-                        <CheckCircle className="w-3.5 h-3.5 text-signal shrink-0 mt-0.5" />
-                      ) : (
-                        <Circle className="w-3.5 h-3.5 text-border shrink-0 mt-0.5" />
-                      )}
-                      <p className="font-mono text-[9px] text-muted-foreground leading-relaxed">{req.text}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[9px] text-muted-foreground w-20">CREATOR</span>
+                    <span className="font-mono text-xs text-foreground font-bold">#{sub.creatorId}</span>
+                  </div>
+                  {sub.submittedAt && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[9px] text-muted-foreground w-20">SUBMITTED</span>
+                      <span className="font-mono text-xs text-foreground">
+                        {new Date(sub.submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </span>
                     </div>
-                  ))}
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[9px] text-muted-foreground w-20">REVISIONS</span>
+                    <span className="font-mono text-xs text-foreground">{sub.revisionCount ?? 0} / 1 used</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Visual Guidelines */}
-              <div className="mb-5">
-                <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase mb-2">VISUAL GUIDELINES</p>
-                <div className="flex gap-2 flex-wrap">
-                  {mockBrief.visualGuidelines.map((g) => (
-                    <span key={g} className="font-mono text-[8px] border border-border rounded px-2 py-1 text-muted-foreground">
-                      {g}
-                    </span>
-                  ))}
+              {/* Draft content link */}
+              {sub.draftUrl ? (
+                <div className="bg-card border border-border rounded-lg p-5">
+                  <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">SUBMITTED CONTENT</p>
+                  <a
+                    href={sub.draftUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 font-mono text-xs text-primary hover:underline break-all"
+                  >
+                    <ExternalLink className="w-3 h-3 shrink-0" />
+                    {sub.draftUrl}
+                  </a>
+                  {sub.draftThumbnailUrl && (
+                    <img
+                      src={sub.draftThumbnailUrl}
+                      alt="Draft thumbnail"
+                      className="mt-3 rounded-lg max-h-48 object-cover border border-border"
+                    />
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="bg-card border border-border rounded-lg p-5">
+                  <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">SUBMITTED CONTENT</p>
+                  <p className="font-mono text-xs text-muted-foreground">No content URL submitted yet.</p>
+                </div>
+              )}
 
-              {/* Revision Allowance */}
-              <div>
-                <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase mb-2">REVISION ALLOWANCE</p>
-                <p className="font-mono text-sm text-foreground font-bold">
-                  {mockBrief.revisionUsed}/{mockBrief.revisionTotal} USED
-                </p>
+              {/* Previous advertiser notes */}
+              {sub.advertiserNotes && (
+                <div className="bg-card border border-border rounded-lg p-5">
+                  <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-2">PREVIOUS NOTES</p>
+                  <div className="border-l-2 border-gold pl-4">
+                    <p className="text-xs text-foreground leading-relaxed">{sub.advertiserNotes}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Feedback & Actions */}
+              {(sub.draftStatus === "draft_submitted" || sub.draftStatus === "pending") && (
+                <div className="bg-card border border-border rounded-lg p-5">
+                  <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">FEEDBACK / NOTES</p>
+                  <textarea
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    placeholder="Add feedback for the creator (optional for approval, required for revision)..."
+                    className="w-full h-24 bg-background border border-border rounded p-3 font-mono text-xs text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-foreground/50"
+                  />
+                  {(approveContent.error || requestRevision.error) && (
+                    <p className="font-mono text-[9px] text-destructive mt-2">
+                      {approveContent.error?.message ?? requestRevision.error?.message}
+                    </p>
+                  )}
+                  <div className="flex gap-3 mt-3">
+                    <button
+                      onClick={() => {
+                        if (!feedback.trim()) return;
+                        requestRevision.mutate({ submissionId: sub.id, notes: feedback });
+                      }}
+                      disabled={requestRevision.isPending || !feedback.trim()}
+                      className="flex-1 py-2.5 bg-primary text-primary-foreground font-mono text-xs tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      title={!feedback.trim() ? "Add feedback notes before requesting revision" : ""}
+                    >
+                      {requestRevision.isPending ? "REQUESTING..." : "REQUEST REVISION"}
+                    </button>
+                    <button
+                      onClick={() => approveContent.mutate({ submissionId: sub.id })}
+                      disabled={approveContent.isPending}
+                      className="flex-1 py-2.5 bg-signal text-background font-mono text-xs tracking-widest rounded hover:opacity-90 transition-opacity disabled:opacity-50"
+                    >
+                      {approveContent.isPending ? "APPROVING..." : "APPROVE SUBMISSION"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Already actioned state */}
+              {sub.draftStatus === "approved" && (
+                <div className="bg-signal/10 border border-signal/30 rounded-lg p-5 text-center">
+                  <CheckCircle className="w-6 h-6 text-signal mx-auto mb-2" />
+                  <p className="font-mono text-xs text-signal tracking-widest">SUBMISSION APPROVED</p>
+                </div>
+              )}
+              {sub.draftStatus === "revision_requested" && (
+                <div className="bg-gold/10 border border-gold/30 rounded-lg p-5 text-center">
+                  <p className="font-mono text-xs text-gold tracking-widest">REVISION REQUESTED — AWAITING RESUBMISSION</p>
+                </div>
+              )}
+            </div>
+
+            {/* Right Panel — Campaign Brief */}
+            <div>
+              <div className="bg-card border border-border rounded-lg p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="font-mono text-xs text-foreground tracking-widest font-bold">CAMPAIGN BRIEF</p>
+                  <span className="font-mono text-[8px] text-muted-foreground tracking-widest">
+                    CID-{campaignId.toString().padStart(3, "0")}
+                  </span>
+                </div>
+
+                {campaign ? (
+                  <>
+                    {campaign.deliverables && (
+                      <div className="mb-4">
+                        <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase mb-2">DELIVERABLES</p>
+                        <p className="text-xs text-foreground leading-relaxed">{campaign.deliverables}</p>
+                      </div>
+                    )}
+
+                    {campaign.contentDos && (
+                      <div className="mb-4">
+                        <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase mb-2">DO'S</p>
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="w-3 h-3 text-signal shrink-0 mt-0.5" />
+                          <p className="text-xs text-foreground leading-relaxed">{campaign.contentDos}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {campaign.contentDonts && (
+                      <div className="mb-4">
+                        <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase mb-2">DON'TS</p>
+                        <div className="flex items-start gap-2">
+                          <Circle className="w-3 h-3 text-destructive shrink-0 mt-0.5" />
+                          <p className="text-xs text-foreground leading-relaxed">{campaign.contentDonts}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {(campaign as any).requiredHashtags && (
+                      <div className="mb-4">
+                        <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase mb-2">REQUIRED HASHTAGS</p>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {(() => {
+                            try {
+                              const tags = typeof (campaign as any).requiredHashtags === "string"
+                                ? JSON.parse((campaign as any).requiredHashtags)
+                                : ((campaign as any).requiredHashtags ?? []);
+                              return (tags as string[]).map((t) => (
+                                <span key={t} className="font-mono text-[8px] border border-border rounded px-2 py-1 text-muted-foreground">
+                                  #{t}
+                                </span>
+                              ));
+                            } catch { return null; }
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase mb-2">REVISION ALLOWANCE</p>
+                      <p className="font-mono text-sm text-foreground font-bold">
+                        {sub.revisionCount ?? 0}/1 USED
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    {[80, 60, 40].map((w) => (
+                      <div key={w} className={`h-3 w-${w} bg-muted animate-pulse rounded`} />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </AppLayout>
   );

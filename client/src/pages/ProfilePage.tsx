@@ -5,7 +5,21 @@ import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, Shield, User, ChevronDown, ChevronUp, Plus, Trash2, Camera } from "lucide-react";
+import { Save, Shield, User, ChevronDown, ChevronUp, Plus, Trash2, Camera, CreditCard, Check } from "lucide-react";
+
+const NIGERIAN_BANKS = [
+  { code: "044", name: "Access Bank" }, { code: "023", name: "Citibank Nigeria" },
+  { code: "050", name: "EcoBank Nigeria" }, { code: "070", name: "Fidelity Bank" },
+  { code: "011", name: "First Bank of Nigeria" }, { code: "214", name: "First City Monument Bank" },
+  { code: "058", name: "Guaranty Trust Bank" }, { code: "030", name: "Heritage Bank" },
+  { code: "301", name: "Jaiz Bank" }, { code: "082", name: "Keystone Bank" },
+  { code: "526", name: "Kuda MFB" }, { code: "090175", name: "Moniepoint MFB" },
+  { code: "076", name: "Polaris Bank" }, { code: "221", name: "Stanbic IBTC Bank" },
+  { code: "232", name: "Sterling Bank" }, { code: "032", name: "Union Bank of Nigeria" },
+  { code: "033", name: "United Bank for Africa" }, { code: "215", name: "Unity Bank" },
+  { code: "035", name: "Wema Bank" }, { code: "057", name: "Zenith Bank" },
+  { code: "999992", name: "OPay" }, { code: "999991", name: "PalmPay" },
+] as const;
 
 const PLATFORMS = ["instagram", "tiktok", "youtube", "x", "twitch"] as const;
 type Platform = typeof PLATFORMS[number];
@@ -584,6 +598,11 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* Bank account (creators only) */}
+        {(role === "creator") && (
+          <BankAccountSection />
+        )}
+
         {/* Account info (read-only) */}
         <div className="bg-card border border-border rounded-lg p-6 mt-6">
           <span className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Account</span>
@@ -606,5 +625,136 @@ export default function ProfilePage() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+// ── Bank Account Section ───────────────────────────────────────────────────────
+
+function BankAccountSection() {
+  const { data: bankAccount, refetch } = trpc.creator.getBankAccount.useQuery();
+  const updateBank = trpc.creator.updateBankAccount.useMutation({ onSuccess: () => refetch() });
+
+  const [bankCode, setBankCode] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (bankAccount) {
+      setBankCode(bankAccount.bankCode ?? "");
+      setAccountNumber(bankAccount.accountNumber ?? "");
+      setAccountName(bankAccount.accountName ?? "");
+    }
+  }, [bankAccount]);
+
+  function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    updateBank.mutate({ bankCode, accountNumber, accountName }, {
+      onSuccess: () => setEditing(false),
+    });
+  }
+
+  const bankName = NIGERIAN_BANKS.find((b) => b.code === bankCode)?.name;
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-6 mt-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <CreditCard className="w-4 h-4 text-muted-foreground" />
+          <span className="font-mono text-xs tracking-widest uppercase text-foreground font-bold">Payout Bank Account</span>
+        </div>
+        {bankAccount && !editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="font-mono text-[9px] text-muted-foreground hover:text-foreground tracking-widest transition-colors"
+          >
+            EDIT
+          </button>
+        )}
+      </div>
+
+      {bankAccount && !editing ? (
+        <div className="space-y-2">
+          <div className="flex justify-between items-center py-2 border-b border-border">
+            <span className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">Bank</span>
+            <span className="font-mono text-xs text-foreground">{bankName ?? bankAccount.bankCode}</span>
+          </div>
+          <div className="flex justify-between items-center py-2 border-b border-border">
+            <span className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">Account Number</span>
+            <span className="font-mono text-xs text-foreground">
+              ••••••{bankAccount.accountNumber.slice(-4)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center py-2">
+            <span className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">Account Name</span>
+            <span className="font-mono text-xs text-foreground">{bankAccount.accountName}</span>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSave} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="font-mono text-[9px] tracking-widest uppercase text-muted-foreground">Bank</Label>
+            <select
+              value={bankCode}
+              onChange={(e) => setBankCode(e.target.value)}
+              required
+              className="w-full bg-background border border-border rounded px-3 py-2 font-mono text-xs text-foreground focus:outline-none focus:border-foreground/50"
+            >
+              <option value="">Select bank…</option>
+              {NIGERIAN_BANKS.map((b) => (
+                <option key={b.code} value={b.code}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="font-mono text-[9px] tracking-widest uppercase text-muted-foreground">Account Number (10 digits)</Label>
+            <Input
+              value={accountNumber}
+              onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
+              placeholder="0123456789"
+              maxLength={10}
+              required
+              pattern="\d{10}"
+              title="Must be exactly 10 digits"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="font-mono text-[9px] tracking-widest uppercase text-muted-foreground">Account Name</Label>
+            <Input
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              placeholder="As it appears on your bank statement"
+              required
+            />
+          </div>
+          {updateBank.error && (
+            <p className="font-mono text-[9px] text-destructive">{updateBank.error.message}</p>
+          )}
+          <div className="flex gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={updateBank.isPending}
+              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground font-mono text-[9px] tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-60"
+            >
+              <Check className="w-3 h-3" />
+              {updateBank.isPending ? "SAVING…" : "SAVE ACCOUNT"}
+            </button>
+            {bankAccount && (
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="px-4 py-2 border border-border font-mono text-[9px] tracking-widest text-muted-foreground hover:text-foreground transition-colors rounded"
+              >
+                CANCEL
+              </button>
+            )}
+          </div>
+        </form>
+      )}
+
+      <p className="font-mono text-[8px] text-muted-foreground mt-3">
+        Your earnings will be sent to this account after post verification.
+      </p>
+    </div>
   );
 }

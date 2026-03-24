@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
-import { Eye, Flag, Filter, MessageSquare } from "lucide-react";
+import { Eye, Flag, Filter, MessageSquare, CreditCard, CheckCircle2, XCircle } from "lucide-react";
 
 type TabKey = "ROSTER" | "CONTENT" | "ANALYTICS" | "PAYOUTS";
 
@@ -25,8 +25,20 @@ const statusDot: Record<string, string> = {
 export default function CampaignDetail() {
   const [, params] = useRoute("/brand/campaigns/:id");
   const campaignId = params?.id ? parseInt(params.id) : 0;
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<TabKey>("ROSTER");
+  const [paymentBanner, setPaymentBanner] = useState<"success" | "failed" | null>(null);
+
+  // Read ?payment= query param set by the Interswitch callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const p = params.get("payment");
+    if (p === "success" || p === "failed") {
+      setPaymentBanner(p);
+      // Clean the URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   const { data: campaign, isLoading, refetch: refetchCampaign } = trpc.advertiser.getCampaign.useQuery({ id: campaignId });
   const { data: roster } = trpc.advertiser.getCampaignRoster.useQuery({ campaignId }, { enabled: !!campaignId });
@@ -35,6 +47,12 @@ export default function CampaignDetail() {
 
   const launchCampaign = trpc.advertiser.launchCampaign.useMutation({
     onSuccess: () => { refetchCampaign(); },
+  });
+
+  const fundCampaign = trpc.advertiser.fundCampaign.useMutation({
+    onSuccess: ({ redirectUrl }) => {
+      window.location.href = redirectUrl;
+    },
   });
 
   const startConversation = trpc.messaging.startConversation.useMutation({
@@ -67,6 +85,22 @@ export default function CampaignDetail() {
   return (
     <AppLayout>
       <div className="p-8">
+        {/* Payment banner */}
+        {paymentBanner === "success" && (
+          <div className="flex items-center gap-3 mb-6 p-4 bg-signal/10 border border-signal/30 rounded-lg">
+            <CheckCircle2 className="w-4 h-4 text-signal shrink-0" />
+            <p className="font-mono text-xs text-signal tracking-widest">PAYMENT SUCCESSFUL — CAMPAIGN IS NOW LIVE</p>
+            <button onClick={() => setPaymentBanner(null)} className="ml-auto text-signal/60 hover:text-signal">✕</button>
+          </div>
+        )}
+        {paymentBanner === "failed" && (
+          <div className="flex items-center gap-3 mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+            <XCircle className="w-4 h-4 text-destructive shrink-0" />
+            <p className="font-mono text-xs text-destructive tracking-widest">PAYMENT FAILED — PLEASE TRY AGAIN</p>
+            <button onClick={() => setPaymentBanner(null)} className="ml-auto text-destructive/60 hover:text-destructive">✕</button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
@@ -89,11 +123,15 @@ export default function CampaignDetail() {
             </button>
             {campaign.status === "draft" && (
               <button
-                onClick={() => launchCampaign.mutate({ campaignId })}
-                disabled={launchCampaign.isPending}
-                className="px-4 py-2 bg-primary text-primary-foreground font-mono text-xs tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-60"
+                onClick={() => {
+                  const callbackUrl = `${window.location.origin}/api/payment/callback`;
+                  fundCampaign.mutate({ campaignId, callbackUrl });
+                }}
+                disabled={fundCampaign.isPending}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-mono text-xs tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-60"
               >
-                {launchCampaign.isPending ? "LAUNCHING…" : "LAUNCH CAMPAIGN"}
+                <CreditCard className="w-3.5 h-3.5" />
+                {fundCampaign.isPending ? "REDIRECTING…" : "FUND & LAUNCH"}
               </button>
             )}
             {campaign.status === "active" && (

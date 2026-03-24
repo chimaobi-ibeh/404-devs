@@ -36,13 +36,10 @@ function getSidebarLinks(role: string) {
   ];
   // admin
   return [
-    { icon: Shield,          label: "Command Ctr", path: "/admin" },
-    { icon: LayoutDashboard, label: "Brand Hub",   path: "/brand/dashboard" },
-    { icon: Megaphone,       label: "Creator Hub", path: "/creator/dashboard" },
-    { icon: Users,           label: "Directory",   path: "/creator/directory" },
-    { icon: TrendingUp,      label: "Analytics",   path: "/admin" },
-    { icon: MessageSquare,   label: "Messages",    path: "/messages" },
-    { icon: User,            label: "Profile",     path: "/profile" },
+    { icon: Shield,        label: "Dashboard",     path: "/admin" },
+    { icon: Users,         label: "Verifications", path: "/admin/verifications" },
+    { icon: FileText,      label: "Disputes",      path: "/admin/disputes" },
+    { icon: TrendingUp,    label: "System Health", path: "/admin/system" },
   ];
 }
 
@@ -206,10 +203,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }
 
   function isActive(path: string) {
-    if (path === "/brand/dashboard" || path === "/creator/dashboard" || path === "/admin") {
-      return location === path;
-    }
-    return location.startsWith(path);
+    return location === path;
   }
 
   function navigate(path: string) {

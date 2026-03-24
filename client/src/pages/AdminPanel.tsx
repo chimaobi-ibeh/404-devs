@@ -6,18 +6,28 @@ import { AlertTriangle, Activity, Clock, ChevronDown, ChevronUp, ExternalLink } 
 
 type TabKey = "SYSTEM HEALTH" | "DISPUTES" | "VERIFICATIONS";
 
+function routeToTab(path: string): TabKey {
+  if (path.includes("/verifications")) return "VERIFICATIONS";
+  if (path.includes("/disputes")) return "DISPUTES";
+  return "SYSTEM HEALTH";
+}
+
 export default function AdminPanel() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { data: analytics } = trpc.admin.getDashboard.useQuery();
   const { data: disputes, refetch: refetchDisputes } = trpc.admin.getDisputes.useQuery({ limit: 50, offset: 0 });
   const { data: pendingCreators, refetch: refetchPending } = trpc.admin.getPendingCreators.useQuery();
-  const [activeTab, setActiveTab] = useState<TabKey>("SYSTEM HEALTH");
+  const activeTab = routeToTab(location);
   const [selectedDisputeId, setSelectedDisputeId] = useState<number | null>(null);
   const [resolutionText, setResolutionText] = useState("");
   const [expandedCreatorId, setExpandedCreatorId] = useState<number | null>(null);
   const [rejectionReasons, setRejectionReasons] = useState<Record<number, string>>({});
 
-  const tabs: TabKey[] = ["SYSTEM HEALTH", "DISPUTES", "VERIFICATIONS"];
+  const tabs: { key: TabKey; path: string }[] = [
+    { key: "SYSTEM HEALTH", path: "/admin" },
+    { key: "DISPUTES",      path: "/admin/disputes" },
+    { key: "VERIFICATIONS", path: "/admin/verifications" },
+  ];
 
   const stats = (analytics?.stats as any) ?? {};
 
@@ -88,17 +98,17 @@ export default function AdminPanel() {
 
         {/* Tabs */}
         <div className="flex gap-0 border-b border-border mb-6">
-          {tabs.map((tab) => (
+          {tabs.map(({ key, path }) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+              key={key}
+              onClick={() => setLocation(path)}
               className={`px-6 py-2.5 font-mono text-xs tracking-widest transition-colors border-b-2 -mb-px ${
-                activeTab === tab
+                activeTab === key
                   ? "text-foreground border-primary"
                   : "text-muted-foreground border-transparent hover:text-foreground"
               }`}
             >
-              {tab}
+              {key}
             </button>
           ))}
         </div>

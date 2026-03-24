@@ -24,20 +24,21 @@ import ProfilePage from "./pages/ProfilePage";
 import MessagesPage from "./pages/MessagesPage";
 import ContentCalendarPage from "./pages/ContentCalendarPage";
 import BrandProfilePage from "./pages/BrandProfilePage";
+import AdminLoginPage from "./pages/AdminLoginPage";
 import CreatorProfilePage from "./pages/CreatorProfilePage";
 import CreatorCampaignView from "./pages/CreatorCampaignView";
 import CampaignMarketplace from "./pages/CampaignMarketplace";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 // ─── Access rules ─────────────────────────────────────────────────────────────
-// admin can access everything
+// admin: only admin routes — cannot impersonate creator or advertiser
 // advertiser: brand routes + directory + profile
 // creator: creator routes + directory + profile
 const ACCESS: Record<string, (role: string) => boolean> = {
   any:        () => true,
-  advertiser: (r) => r === "advertiser" || r === "admin",
-  creator:    (r) => r === "creator"    || r === "admin",
-  shared:     (r) => r !== undefined,   // any authenticated user
+  advertiser: (r) => r === "advertiser",
+  creator:    (r) => r === "creator",
+  shared:     (r) => r !== undefined && r !== "admin", // authenticated non-admin
   admin:      (r) => r === "admin",
 };
 
@@ -81,6 +82,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/auth/reset-password" component={ResetPasswordPage} />
+      <Route path="/system/login" component={AdminLoginPage} />
 
       {/* All authenticated users */}
       <Route path="/onboarding"><ProtectedRoute component={OnboardingPage} /></Route>
@@ -107,6 +109,9 @@ function Router() {
 
       {/* Admin only */}
       <Route path="/admin"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>
+      <Route path="/admin/verifications"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>
+      <Route path="/admin/disputes"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>
+      <Route path="/admin/system"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>
 
       {/* 404 */}
       <Route component={NotFound} />

@@ -139,6 +139,12 @@ export function registerOAuthRoutes(app: Express) {
       return;
     }
 
+    // Block admin email from the public login endpoint
+    if (ENV.adminEmail && email.toLowerCase() === ENV.adminEmail.toLowerCase()) {
+      res.status(403).json({ error: "Use the admin portal to sign in." });
+      return;
+    }
+
     try {
       const admin = makeAdminClient();
       const anon = makeAnonClient();
@@ -190,6 +196,54 @@ export function registerOAuthRoutes(app: Express) {
       res.json({ ok: true, redirect });
     } catch (err: any) {
       console.error("[Auth] Login failed:", err?.message ?? err);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  /**
+   * POST /api/auth/admin-login
+   * Only works for the configured ADMIN_EMAIL. Hidden endpoint — not linked publicly.
+   */
+  app.post("/api/auth/admin-login", async (req: Request, res: Response) => {
+    const { email, password } = req.body ?? {};
+
+    if (!email || !password) {
+      res.status(400).json({ error: "email and password are required" });
+      return;
+    }
+
+    if (!ENV.adminEmail || email.toLowerCase() !== ENV.adminEmail.toLowerCase()) {
+      res.status(403).json({ error: "Invalid credentials." });
+      return;
+    }
+
+    try {
+      const anon = makeAnonClient();
+      const admin = makeAdminClient();
+
+      let { data, error } = await anon.auth.signInWithPassword({ email, password });
+
+      if (error?.message?.toLowerCase().includes("email not confirmed")) {
+        const { data: linkData } = await admin.auth.admin.generateLink({ type: "magiclink", email });
+        if (linkData?.user?.id) {
+          await admin.auth.admin.updateUserById(linkData.user.id, { email_confirm: true });
+          const retry = await anon.auth.signInWithPassword({ email, password });
+          data = retry.data;
+          error = retry.error;
+        }
+      }
+
+      if (error || !data?.session) {
+        res.status(401).json({ error: "Invalid credentials." });
+        return;
+      }
+
+      const user = data.user;
+      const name = user.user_metadata?.full_name ?? user.user_metadata?.name ?? email;
+      await issueSession(res, req, user.id, email, name, "admin");
+      res.json({ ok: true, redirect: "/admin" });
+    } catch (err: any) {
+      console.error("[Auth] Admin login failed:", err?.message ?? err);
       res.status(500).json({ error: "Login failed" });
     }
   });

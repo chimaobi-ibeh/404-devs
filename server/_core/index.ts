@@ -111,6 +111,47 @@ async function startServer() {
         "  Admin      → http://localhost:3000/api/dev/login?role=admin"
     );
   }
+  // ── Interswitch payment callback ─────────────────────────────────────────
+  // Interswitch redirects here after the user completes (or cancels) payment.
+  // Query params: txnref, responseCode, responseDescription
+  app.get("/api/payment/callback", async (req, res) => {
+    const txnRef = req.query.txnref as string | undefined;
+    const responseCode = req.query.responseCode as string | undefined;
+
+    if (!txnRef) {
+      res.redirect("/brand/dashboard?payment=error&reason=missing_ref");
+      return;
+    }
+
+    try {
+      const { getPaymentByRef, updatePaymentStatus, updateCampaignStatus } = await import("../db");
+      const { verifyPayment } = await import("../interswitch");
+
+      const payment = await getPaymentByRef(txnRef);
+      if (!payment) {
+        res.redirect("/brand/dashboard?payment=error&reason=not_found");
+        return;
+      }
+
+      // Verify with Interswitch (responseCode "00" = success, but always re-verify server-side)
+      const verified = responseCode === "00"
+        ? await verifyPayment(txnRef, Number(payment.amount))
+        : { success: false };
+
+      if (verified.success) {
+        await updatePaymentStatus(payment.id, "completed");
+        await updateCampaignStatus(payment.campaignId, "active");
+        res.redirect(`/brand/campaigns/${payment.campaignId}?payment=success`);
+      } else {
+        await updatePaymentStatus(payment.id, "failed");
+        res.redirect(`/brand/campaigns/${payment.campaignId}?payment=failed`);
+      }
+    } catch (err: any) {
+      console.error("[Payment callback]", err?.message);
+      res.redirect("/brand/dashboard?payment=error&reason=server_error");
+    }
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",
