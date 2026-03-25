@@ -385,14 +385,39 @@ const advertiserRouter = router({
     }),
 
   acceptRosterEntry: protectedProcedure
-    .input(z.object({ rosterId: z.number(), creatorFee: z.number() }))
+    .input(z.object({ rosterId: z.number(), creatorFee: z.number().positive() }))
     .mutation(async ({ ctx, input }) => {
       const roster = await db.getRosterEntry(input.rosterId);
       if (!roster) throw new TRPCError({ code: "NOT_FOUND" });
       const campaign = await db.getCampaign(roster.campaignId);
       if (!campaign || campaign.advertiserId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-      await db.updateRosterStatus(input.rosterId, "accepted");
-      await db.updateCampaign(roster.campaignId, { budget: String(Number(campaign.budget)) });
+      if (!["applied", "invited"].includes(roster.status)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Creator is not in a pending state" });
+      }
+      await db.acceptRosterEntry(input.rosterId, String(input.creatorFee));
+      // Notify the creator they've been accepted
+      const creatorProfile = await db.getCreatorProfileById(roster.creatorId);
+      if (creatorProfile) {
+        await db.createNotification({
+          userId: creatorProfile.userId,
+          type: "campaign_accepted",
+          title: "You've been accepted!",
+          message: `You've been accepted for "${campaign.title}". Your fee: ₦${input.creatorFee.toLocaleString()}.`,
+          relatedEntityType: "campaign",
+          relatedEntityId: campaign.id,
+        });
+      }
+      return { success: true };
+    }),
+
+  declineRosterEntry: protectedProcedure
+    .input(z.object({ rosterId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const roster = await db.getRosterEntry(input.rosterId);
+      if (!roster) throw new TRPCError({ code: "NOT_FOUND" });
+      const campaign = await db.getCampaign(roster.campaignId);
+      if (!campaign || campaign.advertiserId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      await db.updateRosterStatus(input.rosterId, "declined");
       return { success: true };
     }),
 });
@@ -527,6 +552,22 @@ const creatorRouter = router({
       });
     }),
 
+  acceptCampaign: protectedProcedure
+    .input(z.object({ rosterId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const roster = await db.getRosterEntry(input.rosterId);
+      if (!roster) throw new TRPCError({ code: "NOT_FOUND" });
+      const creatorProfile = await db.getCreatorProfile(ctx.user.id);
+      if (!creatorProfile || roster.creatorId !== creatorProfile.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      if (roster.status !== "invited") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No pending invitation to accept" });
+      }
+      await db.updateRosterStatus(input.rosterId, "accepted");
+      return { success: true };
+    }),
+
   declineCampaign: protectedProcedure
     .input(z.object({ rosterId: z.number() }))
     .mutation(async ({ ctx, input }) => {
@@ -539,6 +580,42 @@ const creatorRouter = router({
       }
 
       await db.updateRosterStatus(input.rosterId, "declined");
+      return { success: true };
+    }),
+
+  getMySubmissions: protectedProcedure.query(async ({ ctx }) => {
+    const creatorProfile = await db.getCreatorProfile(ctx.user.id);
+    if (!creatorProfile) return [];
+    const rosters = await db.getCreatorRosterEntries(creatorProfile.id);
+    const submissions = await Promise.all(
+      rosters.map(async (r) => {
+        const subs = await db.getCreatorSubmissionsForRoster(r.id);
+        return subs.map((s) => ({ ...s, roster: r }));
+      })
+    );
+    return submissions.flat();
+  }),
+
+  resubmitDraft: protectedProcedure
+    .input(z.object({
+      submissionId: z.number(),
+      draftUrl: z.string().url(),
+      draftThumbnailUrl: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const submission = await db.getContentSubmission(input.submissionId);
+      if (!submission) throw new TRPCError({ code: "NOT_FOUND" });
+      const creatorProfile = await db.getCreatorProfile(ctx.user.id);
+      if (!creatorProfile || submission.creatorId !== creatorProfile.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      if (submission.draftStatus !== "revision_requested") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No revision requested on this submission" });
+      }
+      await db.updateContentSubmissionDraft(input.submissionId, input.draftUrl, input.draftThumbnailUrl);
+      // Notify advertiser
+      const campaign = await db.getCampaign(submission.campaignId);
+      if (campaign) await notifyDraftSubmitted(campaign.advertiserId, submission.campaignId);
       return { success: true };
     }),
 
@@ -874,6 +951,26 @@ const creatorRouter = router({
   getBankAccount: protectedProcedure.query(async ({ ctx }) => {
     return db.getCreatorBankDetails(ctx.user.id);
   }),
+
+  verifyBankAccount: protectedProcedure
+    .input(z.object({ accountNumber: z.string().length(10), bankCode: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const { lookupBankAccount } = await import("./interswitch");
+      const result = await lookupBankAccount(input.accountNumber, input.bankCode);
+      return { accountName: result.accountName };
+    }),
+
+  verifyNin: protectedProcedure
+    .input(z.object({ nin: z.string().length(11) }))
+    .mutation(async ({ ctx, input }) => {
+      const { verifyNin: interswitchVerifyNin } = await import("./interswitch");
+      const result = await interswitchVerifyNin(input.nin);
+      if (!result.verified) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: result.message ?? "NIN verification failed" });
+      }
+      await db.setCreatorNinVerified(ctx.user.id, input.nin);
+      return { verified: true, ninName: result.ninName };
+    }),
 
   requestPayout: protectedProcedure.mutation(async ({ ctx }) => {
     const creatorProfile = await db.getCreatorProfile(ctx.user.id);
@@ -1222,6 +1319,18 @@ const adminRouter = router({
         await db.setPlatformSetting(key, value, ctx.user.id);
       }
       return { success: true };
+    }),
+
+  getUsers: protectedProcedure
+    .input(z.object({
+      limit: z.number().default(50),
+      offset: z.number().default(0),
+      role: z.enum(["advertiser", "creator", "admin"]).optional(),
+      search: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      return db.getAllUsers({ limit: input.limit, offset: input.offset, role: input.role, search: input.search });
     }),
 });
 

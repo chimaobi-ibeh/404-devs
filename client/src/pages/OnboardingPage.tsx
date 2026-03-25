@@ -14,7 +14,7 @@ export default function OnboardingPage() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [, setLocation] = useLocation();
-  const { logout } = useAuth();
+  const { logout, refresh } = useAuth();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
@@ -34,11 +34,11 @@ export default function OnboardingPage() {
   const [dateOfBirth, setDateOfBirth] = useState("");
 
   const createAdvertiserProfile = trpc.advertiser.createProfile.useMutation({
-    onSuccess: () => setLocation("/brand/dashboard"),
+    onSuccess: async () => { await refresh(); setLocation("/brand/dashboard"); },
   });
 
   const createCreatorProfile = trpc.creator.createProfile.useMutation({
-    onSuccess: () => setLocation("/creator/dashboard"),
+    onSuccess: async () => { await refresh(); setLocation("/creator/dashboard"); },
   });
 
   const isPending = createAdvertiserProfile.isPending || createCreatorProfile.isPending;
@@ -125,10 +125,10 @@ export default function OnboardingPage() {
               {/* Advertiser */}
               <button
                 onClick={() => handleRoleSelect("advertiser")}
-                className="relative group text-left rounded-lg border border-border overflow-hidden transition-all hover:border-primary focus:outline-none"
-                style={{ background: "linear-gradient(135deg, #111111 0%, #0A0A0A 100%)", minHeight: "380px" }}
+                className="relative group text-left rounded-lg border border-border bg-card overflow-hidden transition-all hover:border-primary hover:shadow-md focus:outline-none"
+                style={{ minHeight: "380px" }}
               >
-                <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "repeating-linear-gradient(45deg,#ffffff,#ffffff 1px,transparent 1px,transparent 12px)" }} />
+                <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: isDark ? "repeating-linear-gradient(45deg,#ffffff,#ffffff 1px,transparent 1px,transparent 12px)" : "repeating-linear-gradient(45deg,#000000,#000000 1px,transparent 1px,transparent 12px)" }} />
                 <div className="relative p-8 flex flex-col h-full" style={{ minHeight: "380px" }}>
                   <div className="flex items-start justify-between mb-6">
                     <div className="w-12 h-12 rounded border border-primary/30 bg-primary/10 flex items-center justify-center">
@@ -150,10 +150,10 @@ export default function OnboardingPage() {
               {/* Creator */}
               <button
                 onClick={() => handleRoleSelect("creator")}
-                className="relative group text-left rounded-lg border border-border overflow-hidden transition-all hover:border-gold focus:outline-none"
-                style={{ background: "linear-gradient(135deg, #111111 0%, #0A0A0A 100%)", minHeight: "380px" }}
+                className="relative group text-left rounded-lg border border-border bg-card overflow-hidden transition-all hover:border-gold hover:shadow-md focus:outline-none"
+                style={{ minHeight: "380px" }}
               >
-                <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "repeating-linear-gradient(45deg,#ffffff,#ffffff 1px,transparent 1px,transparent 12px)" }} />
+                <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: isDark ? "repeating-linear-gradient(45deg,#ffffff,#ffffff 1px,transparent 1px,transparent 12px)" : "repeating-linear-gradient(45deg,#000000,#000000 1px,transparent 1px,transparent 12px)" }} />
                 <div className="relative p-8 flex flex-col h-full" style={{ minHeight: "380px" }}>
                   <div className="flex items-start justify-between mb-6">
                     <div className="w-12 h-12 rounded border border-gold/30 bg-gold/10 flex items-center justify-center">

@@ -3,7 +3,8 @@ import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { toast } from "sonner";
-import { ArrowRight, Lock, MessageSquare, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, Lock, MessageSquare, AlertCircle, Check, X, Upload, ExternalLink } from "lucide-react";
 
 const statusColors: Record<string, string> = {
   active:  "text-signal",
@@ -19,13 +20,25 @@ const statusDots: Record<string, string> = {
   ended:   "bg-muted-foreground",
 };
 
+// ── Modals ────────────────────────────────────────────────────────────────────
+type DraftModal = { rosterId: number; mode: "submit" | "resubmit"; submissionId?: number };
+type LiveModal  = { submissionId: number };
+
 export default function CreatorDashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { data: profile } = trpc.creator.getProfile.useQuery();
   const { data: earnings } = trpc.creator.getEarnings.useQuery();
   const { data: openCampaigns } = trpc.creator.getAvailableCampaigns.useQuery({ limit: 6 });
-  const { data: myRoster } = trpc.creator.getMyRosterEntries.useQuery();
+  const { data: myRoster, refetch: refetchRoster } = trpc.creator.getMyRosterEntries.useQuery();
+  const { data: mySubmissions, refetch: refetchSubmissions } = trpc.creator.getMySubmissions.useQuery();
+
+  const [draftModal, setDraftModal] = useState<DraftModal | null>(null);
+  const [draftUrl, setDraftUrl] = useState("");
+  const [draftThumb, setDraftThumb] = useState("");
+  const [liveModal, setLiveModal] = useState<LiveModal | null>(null);
+  const [liveUrl, setLiveUrl] = useState("");
+  const [liveScreenshot, setLiveScreenshot] = useState("");
 
   const totalEarnings = earnings?.totalEarnings ?? 0;
   const pendingEarnings = earnings?.pendingEarnings ?? 0;
@@ -42,10 +55,55 @@ export default function CreatorDashboard() {
     onError: (err) => toast.error(err.message),
   });
 
+  const acceptCampaign = trpc.creator.acceptCampaign.useMutation({
+    onSuccess: () => { toast.success("Campaign accepted!"); refetchRoster(); },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const declineCampaign = trpc.creator.declineCampaign.useMutation({
+    onSuccess: () => { toast.success("Invitation declined."); refetchRoster(); },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const submitDraft = trpc.creator.submitDraft.useMutation({
+    onSuccess: () => {
+      toast.success("Draft submitted! The brand will review it.");
+      setDraftModal(null); setDraftUrl(""); setDraftThumb("");
+      refetchSubmissions();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const resubmitDraft = trpc.creator.resubmitDraft.useMutation({
+    onSuccess: () => {
+      toast.success("Revised draft submitted!");
+      setDraftModal(null); setDraftUrl(""); setDraftThumb("");
+      refetchSubmissions();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const submitLivePost = trpc.creator.submitLivePost.useMutation({
+    onSuccess: ({ verificationStatus }) => {
+      toast.success(verificationStatus === "verified" ? "Live post verified! Payout queued." : "Live post submitted — verification pending.");
+      setLiveModal(null); setLiveUrl(""); setLiveScreenshot("");
+      refetchSubmissions();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   const submitForVerification = trpc.creator.submitForVerification.useMutation({
     onSuccess: () => toast.success("Submitted for verification. We'll review your profile shortly."),
     onError: (err) => toast.error(err.message),
   });
+
+  // Build a quick lookup: rosterId → latest submission
+  const submissionByRoster = (mySubmissions ?? []).reduce<Record<number, any>>((acc, s: any) => {
+    if (!acc[s.rosterId] || new Date(s.createdAt) > new Date(acc[s.rosterId].createdAt)) {
+      acc[s.rosterId] = s;
+    }
+    return acc;
+  }, {});
 
   function handleApply(campaignId: number) {
     if (profile?.verificationStatus !== "verified") {
@@ -53,6 +111,22 @@ export default function CreatorDashboard() {
       return;
     }
     applyToCampaign.mutate({ campaignId });
+  }
+
+  function handleDraftSubmit() {
+    if (!draftUrl.trim()) { toast.error("Enter a draft URL"); return; }
+    if (!draftModal) return;
+    if (draftModal.mode === "resubmit" && draftModal.submissionId) {
+      resubmitDraft.mutate({ submissionId: draftModal.submissionId, draftUrl, draftThumbnailUrl: draftThumb || undefined });
+    } else {
+      submitDraft.mutate({ rosterId: draftModal.rosterId, draftUrl, draftThumbnailUrl: draftThumb || undefined });
+    }
+  }
+
+  function handleLiveSubmit() {
+    if (!liveUrl.trim()) { toast.error("Enter the live post URL"); return; }
+    if (!liveModal) return;
+    submitLivePost.mutate({ submissionId: liveModal.submissionId, livePostUrl: liveUrl, livePostScreenshot: liveScreenshot });
   }
 
   return (
@@ -256,42 +330,235 @@ export default function CreatorDashboard() {
               <p className="text-sm text-muted-foreground">Apply to open campaigns above to get started.</p>
             </div>
           ) : (
-            <>
-              <div className="grid grid-cols-5 px-5 py-2 border-b border-border bg-muted/20">
-                {["CAMPAIGN", "STATUS", "DEADLINE", "MSG", "ACTION"].map((h) => (
-                  <p key={h} className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase">{h}</p>
-                ))}
-              </div>
-              <div className="divide-y divide-border">
-                {myRoster.map((entry: any) => (
-                  <div key={entry.id} className="grid grid-cols-5 items-center px-5 py-3.5">
-                    <p className="font-mono text-xs text-foreground font-bold uppercase truncate">{entry.campaign?.title ?? "—"}</p>
-                    <div className="flex items-center gap-2">
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDots[entry.status] ?? "bg-muted-foreground"}`} />
-                      <span className={`font-mono text-[9px] tracking-widest uppercase ${statusColors[entry.status] ?? "text-muted-foreground"}`}>{entry.status}</span>
+            <div className="divide-y divide-border">
+              {myRoster.map((entry: any) => {
+                const sub = submissionByRoster[entry.id];
+                const fee = Number(entry.creatorFee ?? 0);
+
+                return (
+                  <div key={entry.id} className="px-5 py-4">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                      {/* Campaign name + meta */}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-mono text-xs text-foreground font-bold uppercase truncate mb-1">
+                          {entry.campaign?.title ?? "—"}
+                        </p>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDots[entry.status] ?? "bg-muted-foreground"}`} />
+                            <span className={`font-mono text-[9px] tracking-widest uppercase ${statusColors[entry.status] ?? "text-muted-foreground"}`}>{entry.status}</span>
+                          </div>
+                          {fee > 0 && (
+                            <span className="font-mono text-[9px] text-signal">₦{fee.toLocaleString()} FEE</span>
+                          )}
+                          {entry.campaign?.deadline && (
+                            <span className="font-mono text-[9px] text-muted-foreground">
+                              Due {new Date(entry.campaign.deadline).toLocaleDateString()}
+                            </span>
+                          )}
+                          {/* Submission status */}
+                          {sub && (
+                            <span className={`font-mono text-[8px] border rounded px-1.5 py-0.5 tracking-widest ${
+                              sub.draftStatus === "approved"            ? "text-signal border-signal/40" :
+                              sub.draftStatus === "revision_requested"  ? "text-gold border-gold/40" :
+                              sub.draftStatus === "pending"             ? "text-muted-foreground border-border" :
+                              "text-muted-foreground border-border"
+                            }`}>
+                              DRAFT: {sub.draftStatus?.replace(/_/g, " ").toUpperCase()}
+                            </span>
+                          )}
+                          {sub?.livePostUrl && (
+                            <span className={`font-mono text-[8px] border rounded px-1.5 py-0.5 tracking-widest ${
+                              sub.livePostStatus === "verified" ? "text-signal border-signal/40" : "text-gold border-gold/40"
+                            }`}>
+                              LIVE: {sub.livePostStatus?.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 flex-wrap shrink-0">
+                        {/* Invited → Accept / Decline */}
+                        {entry.status === "invited" && (
+                          <>
+                            <button
+                              onClick={() => acceptCampaign.mutate({ rosterId: entry.id })}
+                              disabled={acceptCampaign.isPending}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-signal/10 border border-signal/40 text-signal font-mono text-[8px] tracking-widest rounded hover:bg-signal/20 transition-colors disabled:opacity-50"
+                            >
+                              <Check className="w-3 h-3" /> ACCEPT
+                            </button>
+                            <button
+                              onClick={() => declineCampaign.mutate({ rosterId: entry.id })}
+                              disabled={declineCampaign.isPending}
+                              className="px-2.5 py-1.5 border border-destructive/40 text-destructive font-mono text-[8px] tracking-widest rounded hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                            >
+                              DECLINE
+                            </button>
+                          </>
+                        )}
+
+                        {/* Accepted + no submission yet → Submit Draft */}
+                        {entry.status === "accepted" && !sub && (
+                          <button
+                            onClick={() => { setDraftModal({ rosterId: entry.id, mode: "submit" }); setDraftUrl(""); setDraftThumb(""); }}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-primary/10 border border-primary/40 text-primary font-mono text-[8px] tracking-widest rounded hover:bg-primary/20 transition-colors"
+                          >
+                            <Upload className="w-3 h-3" /> SUBMIT DRAFT
+                          </button>
+                        )}
+
+                        {/* Revision requested → Resubmit */}
+                        {sub?.draftStatus === "revision_requested" && (
+                          <button
+                            onClick={() => { setDraftModal({ rosterId: entry.id, mode: "resubmit", submissionId: sub.id }); setDraftUrl(""); setDraftThumb(""); }}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-gold/10 border border-gold/40 text-gold font-mono text-[8px] tracking-widest rounded hover:bg-gold/20 transition-colors"
+                          >
+                            <Upload className="w-3 h-3" /> RESUBMIT
+                          </button>
+                        )}
+
+                        {/* Draft approved + no live post yet → Submit Live Post */}
+                        {sub?.draftStatus === "approved" && !sub?.livePostUrl && (
+                          <button
+                            onClick={() => { setLiveModal({ submissionId: sub.id }); setLiveUrl(""); setLiveScreenshot(""); }}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-signal/10 border border-signal/40 text-signal font-mono text-[8px] tracking-widest rounded hover:bg-signal/20 transition-colors"
+                          >
+                            <ExternalLink className="w-3 h-3" /> SUBMIT LIVE POST
+                          </button>
+                        )}
+
+                        {/* Message brand */}
+                        <button
+                          onClick={() => startConversation.mutate({ campaignId: entry.campaignId })}
+                          disabled={startConversation.isPending}
+                          title="Message brand"
+                          className="text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {entry.campaign?.deadline ? new Date(entry.campaign.deadline).toLocaleDateString() : "—"}
-                    </p>
-                    <button
-                      onClick={() => startConversation.mutate({ campaignId: entry.campaignId })}
-                      disabled={startConversation.isPending}
-                      title="Message brand"
-                      className="text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => entry.campaign?.advertiserId && setLocation("/brand/profile/" + entry.campaign.advertiserId)}
-                      className="font-mono text-[9px] text-primary tracking-widest hover:underline text-left"
-                    >VIEW →</button>
+
+                    {/* Revision notes from advertiser */}
+                    {sub?.advertiserNotes && sub.draftStatus === "revision_requested" && (
+                      <div className="mt-3 border-l-2 border-gold pl-3">
+                        <p className="font-mono text-[8px] text-gold tracking-widest mb-1">REVISION NOTES FROM BRAND</p>
+                        <p className="font-mono text-[9px] text-foreground">{sub.advertiserNotes}</p>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            </>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
+
+      {/* Draft Submit / Resubmit Modal */}
+      {draftModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <p className="font-mono text-xs text-foreground font-bold tracking-widest">
+                {draftModal.mode === "resubmit" ? "RESUBMIT REVISED DRAFT" : "SUBMIT DRAFT CONTENT"}
+              </p>
+              <button onClick={() => setDraftModal(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="font-mono text-[9px] text-muted-foreground mb-4">
+              Paste a link to your draft content (Google Drive, Dropbox, WeTransfer, etc.). Make sure it's publicly viewable.
+            </p>
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase block mb-1.5">DRAFT URL *</label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/..."
+                  value={draftUrl}
+                  onChange={(e) => setDraftUrl(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50"
+                />
+              </div>
+              <div>
+                <label className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase block mb-1.5">THUMBNAIL URL (optional)</label>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={draftThumb}
+                  onChange={(e) => setDraftThumb(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDraftSubmit}
+                disabled={submitDraft.isPending || resubmitDraft.isPending}
+                className="flex-1 py-2 bg-primary text-primary-foreground font-mono text-[9px] tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {(submitDraft.isPending || resubmitDraft.isPending) ? "SUBMITTING…" : "SUBMIT"}
+              </button>
+              <button onClick={() => setDraftModal(null)} className="px-4 py-2 border border-border font-mono text-[9px] text-muted-foreground hover:text-foreground rounded">
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Post Modal */}
+      {liveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <p className="font-mono text-xs text-foreground font-bold tracking-widest">SUBMIT LIVE POST</p>
+              <button onClick={() => setLiveModal(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="font-mono text-[9px] text-muted-foreground mb-4">
+              Your draft has been approved. Paste the live post URL after you publish it. The platform will verify it's publicly accessible.
+            </p>
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase block mb-1.5">LIVE POST URL *</label>
+                <input
+                  type="url"
+                  placeholder="https://instagram.com/p/..."
+                  value={liveUrl}
+                  onChange={(e) => setLiveUrl(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50"
+                />
+              </div>
+              <div>
+                <label className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase block mb-1.5">SCREENSHOT URL (optional)</label>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={liveScreenshot}
+                  onChange={(e) => setLiveScreenshot(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleLiveSubmit}
+                disabled={submitLivePost.isPending}
+                className="flex-1 py-2 bg-signal text-background font-mono text-[9px] tracking-widest rounded hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {submitLivePost.isPending ? "SUBMITTING…" : "SUBMIT LIVE POST"}
+              </button>
+              <button onClick={() => setLiveModal(null)} className="px-4 py-2 border border-border font-mono text-[9px] text-muted-foreground hover:text-foreground rounded">
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

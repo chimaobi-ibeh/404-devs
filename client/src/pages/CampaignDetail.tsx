@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
-import { Eye, Flag, Filter, MessageSquare, CreditCard, CheckCircle2, XCircle, X } from "lucide-react";
+import { Eye, Flag, Filter, MessageSquare, CreditCard, CheckCircle2, XCircle, X, Check } from "lucide-react";
 import { toast } from "sonner";
 
 type TabKey = "ROSTER" | "CONTENT" | "ANALYTICS" | "PAYOUTS";
@@ -32,6 +32,8 @@ export default function CampaignDetail() {
   const [disputeModal, setDisputeModal] = useState<{ rosterId?: number } | null>(null);
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeDesc, setDisputeDesc] = useState("");
+  const [acceptModal, setAcceptModal] = useState<{ rosterId: number; creatorId: number } | null>(null);
+  const [acceptFee, setAcceptFee] = useState("");
 
   // Read ?payment= query param set by the Interswitch callback
   useEffect(() => {
@@ -51,16 +53,35 @@ export default function CampaignDetail() {
 
   const launchCampaign = trpc.advertiser.launchCampaign.useMutation({
     onSuccess: () => { refetchCampaign(); },
+    onError: (e) => toast.error(e.message),
   });
 
   const fundCampaign = trpc.advertiser.fundCampaign.useMutation({
     onSuccess: ({ redirectUrl }) => {
       window.location.href = redirectUrl;
     },
+    onError: (e) => toast.error(e.message),
   });
 
   const startConversation = trpc.messaging.startConversation.useMutation({
     onSuccess: () => setLocation("/messages"),
+  });
+
+  const { refetch: refetchRoster } = trpc.advertiser.getCampaignRoster.useQuery({ campaignId }, { enabled: !!campaignId });
+
+  const acceptRoster = trpc.advertiser.acceptRosterEntry.useMutation({
+    onSuccess: () => {
+      toast.success("Creator accepted!");
+      setAcceptModal(null);
+      setAcceptFee("");
+      refetchRoster();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const declineRoster = trpc.advertiser.declineRosterEntry.useMutation({
+    onSuccess: () => { toast.success("Creator declined."); refetchRoster(); },
+    onError: (e) => toast.error(e.message),
   });
 
   const createDispute = trpc.advertiser.createDispute.useMutation({
@@ -233,10 +254,27 @@ export default function CampaignDetail() {
                         <p className="font-mono text-sm text-foreground font-bold">₦{entry.creatorFee}</p>
 
                         {/* Actions */}
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {(entry.status === "applied" || entry.status === "invited") && (
+                            <>
+                              <button
+                                onClick={() => setAcceptModal({ rosterId: entry.id, creatorId: entry.creatorId })}
+                                className="flex items-center gap-1 px-2 py-1 bg-signal/10 border border-signal/40 text-signal font-mono text-[8px] tracking-widest rounded hover:bg-signal/20 transition-colors"
+                              >
+                                <Check className="w-3 h-3" /> ACCEPT
+                              </button>
+                              <button
+                                onClick={() => declineRoster.mutate({ rosterId: entry.id })}
+                                disabled={declineRoster.isPending}
+                                className="px-2 py-1 border border-destructive/40 text-destructive font-mono text-[8px] tracking-widest rounded hover:bg-destructive/10 transition-colors disabled:opacity-40"
+                              >
+                                DECLINE
+                              </button>
+                            </>
+                          )}
                           <button
                             onClick={() => setLocation(`/creator/profile/${entry.creatorId}`)}
-                            title="View creator profile"
+                            title="View profile"
                             className="text-muted-foreground hover:text-foreground transition-colors"
                           >
                             <Eye className="w-3.5 h-3.5" />
@@ -415,6 +453,53 @@ export default function CampaignDetail() {
           </div>
         </div>
       </div>
+
+      {/* Accept Creator Modal */}
+      {acceptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm">
+            <div className="flex items-center justify-between mb-4">
+              <p className="font-mono text-xs text-foreground font-bold tracking-widest">ACCEPT CREATOR</p>
+              <button onClick={() => { setAcceptModal(null); setAcceptFee(""); }} className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="font-mono text-[9px] text-muted-foreground mb-4">
+              Set the fee you'll pay this creator for completing the campaign deliverables.
+            </p>
+            <div className="relative mb-4">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">₦</span>
+              <input
+                type="number"
+                min="1"
+                placeholder="e.g. 25000"
+                value={acceptFee}
+                onChange={(e) => setAcceptFee(e.target.value)}
+                className="w-full pl-7 pr-3 py-2 bg-background border border-border rounded font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const fee = parseFloat(acceptFee);
+                  if (!fee || fee <= 0) { toast.error("Enter a valid fee"); return; }
+                  acceptRoster.mutate({ rosterId: acceptModal.rosterId, creatorFee: fee });
+                }}
+                disabled={acceptRoster.isPending}
+                className="flex-1 py-2 bg-signal text-background font-mono text-[9px] tracking-widest rounded hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {acceptRoster.isPending ? "ACCEPTING…" : "CONFIRM & ACCEPT"}
+              </button>
+              <button
+                onClick={() => { setAcceptModal(null); setAcceptFee(""); }}
+                className="px-4 py-2 border border-border font-mono text-[9px] tracking-widest text-muted-foreground hover:text-foreground rounded"
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Dispute Modal */}
       {disputeModal && (

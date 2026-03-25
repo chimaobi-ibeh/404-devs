@@ -12,6 +12,9 @@ import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/AuthPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import BrandDashboard from "./pages/BrandDashboard";
+import BrandCampaignsPage from "./pages/BrandCampaignsPage";
+import BrandContentPage from "./pages/BrandContentPage";
+import BrandAnalyticsPage from "./pages/BrandAnalyticsPage";
 import CreatorDashboard from "./pages/CreatorDashboard";
 import CampaignCreate from "./pages/CampaignCreate";
 import CampaignDetail from "./pages/CampaignDetail";
@@ -31,17 +34,19 @@ import CampaignMarketplace from "./pages/CampaignMarketplace";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import SettingsPage from "./pages/SettingsPage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
+import AdminUsersPage from "./pages/AdminUsersPage";
 
 // ─── Access rules ─────────────────────────────────────────────────────────────
 // admin: only admin routes — cannot impersonate creator or advertiser
 // advertiser: brand routes + directory + profile
 // creator: creator routes + directory + profile
 const ACCESS: Record<string, (role: string) => boolean> = {
-  any:        () => true,
-  advertiser: (r) => r === "advertiser",
-  creator:    (r) => r === "creator",
-  shared:     (r) => r !== undefined && r !== "admin", // authenticated non-admin
-  admin:      (r) => r === "admin",
+  any:           () => true,
+  advertiser:    (r) => r === "advertiser",
+  creator:       (r) => r === "creator",
+  shared:        (r) => r !== undefined && r !== "admin", // authenticated non-admin
+  authenticated: (r) => r !== undefined, // any logged-in user including admin
+  admin:         (r) => r === "admin",
 };
 
 function ProtectedRoute({
@@ -90,12 +95,15 @@ function Router() {
       <Route path="/onboarding"><ProtectedRoute component={OnboardingPage} /></Route>
       <Route path="/profile"><ProtectedRoute component={ProfilePage} /></Route>
       <Route path="/settings"><ProtectedRoute component={SettingsPage} /></Route>
-      <Route path="/creator/directory"><ProtectedRoute component={CreatorDirectory} /></Route>
+      <Route path="/creator/directory"><ProtectedRoute component={CreatorDirectory} allow="authenticated" /></Route>
       <Route path="/messages"><ProtectedRoute component={MessagesPage} /></Route>
       <Route path="/calendar"><ProtectedRoute component={ContentCalendarPage} /></Route>
 
       {/* Advertiser + Admin */}
       <Route path="/brand/dashboard"><ProtectedRoute component={BrandDashboard} allow="advertiser" /></Route>
+      <Route path="/brand/campaigns"><ProtectedRoute component={BrandCampaignsPage} allow="advertiser" /></Route>
+      <Route path="/brand/content"><ProtectedRoute component={BrandContentPage} allow="advertiser" /></Route>
+      <Route path="/brand/analytics"><ProtectedRoute component={BrandAnalyticsPage} allow="advertiser" /></Route>
       <Route path="/brand/campaigns/new"><ProtectedRoute component={CampaignCreate} allow="advertiser" /></Route>
       <Route path="/brand/campaigns/:id/edit"><ProtectedRoute component={CampaignCreate} allow="advertiser" /></Route>
       <Route path="/brand/campaigns/:id"><ProtectedRoute component={CampaignDetail} allow="advertiser" /></Route>
@@ -107,14 +115,15 @@ function Router() {
       <Route path="/creator/campaigns/:id"><ProtectedRoute component={CreatorCampaignView} allow="creator" /></Route>
       <Route path="/creator/marketplace"><ProtectedRoute component={CampaignMarketplace} allow="creator" /></Route>
       <Route path="/creator/earnings"><ProtectedRoute component={CreatorEarnings} allow="creator" /></Route>
-      <Route path="/brand/profile/:id"><ProtectedRoute component={BrandProfilePage} allow="creator" /></Route>
-      <Route path="/creator/profile/:id"><ProtectedRoute component={CreatorProfilePage} /></Route>
+      <Route path="/brand/profile/:id"><ProtectedRoute component={BrandProfilePage} allow="authenticated" /></Route>
+      <Route path="/creator/profile/:id"><ProtectedRoute component={CreatorProfilePage} allow="authenticated" /></Route>
 
       {/* Admin only */}
       <Route path="/admin"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>
       <Route path="/admin/verifications"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>
       <Route path="/admin/disputes"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>
       <Route path="/admin/system"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>
+      <Route path="/admin/users"><ProtectedRoute component={AdminUsersPage} allow="admin" /></Route>
       <Route path="/admin/settings"><ProtectedRoute component={AdminSettingsPage} allow="admin" /></Route>
 
       {/* 404 */}

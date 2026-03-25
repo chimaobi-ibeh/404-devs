@@ -17,15 +17,15 @@ interface AppLayoutProps {
 // ─── Role-specific sidebar links ─────────────────────────────────────────────
 function getSidebarLinks(role: string) {
   if (role === "advertiser") return [
-    { icon: LayoutDashboard, label: "Dashboard",      path: "/brand/dashboard" },
-    { icon: Megaphone,       label: "Campaigns",      path: "/brand/dashboard" },
-    { icon: Users,           label: "Find Creators",  path: "/creator/directory" },
-    { icon: FileText,        label: "Content",        path: "/brand/dashboard" },
-    { icon: TrendingUp,      label: "Analytics",      path: "/brand/dashboard" },
-    { icon: MessageSquare,   label: "Messages",       path: "/messages" },
-    { icon: Calendar,        label: "Calendar",       path: "/calendar" },
-    { icon: User,            label: "Profile",        path: "/profile" },
-    { icon: Settings,        label: "Settings",       path: "/settings" },
+    { icon: LayoutDashboard, label: "Dashboard",     path: "/brand/dashboard" },
+    { icon: Megaphone,       label: "Campaigns",     path: "/brand/campaigns" },
+    { icon: FileText,        label: "Content",       path: "/brand/content" },
+    { icon: TrendingUp,      label: "Analytics",     path: "/brand/analytics" },
+    { icon: Users,           label: "Find Creators", path: "/creator/directory" },
+    { icon: MessageSquare,   label: "Messages",      path: "/messages" },
+    { icon: Calendar,        label: "Calendar",      path: "/calendar" },
+    { icon: User,            label: "Profile",       path: "/profile" },
+    { icon: Settings,        label: "Settings",      path: "/settings" },
   ];
   if (role === "creator") return [
     { icon: LayoutDashboard, label: "Dashboard",  path: "/creator/dashboard" },
@@ -39,7 +39,8 @@ function getSidebarLinks(role: string) {
   // admin
   return [
     { icon: Shield,        label: "Dashboard",     path: "/admin" },
-    { icon: Users,         label: "Verifications", path: "/admin/verifications" },
+    { icon: Users,         label: "Users",         path: "/admin/users" },
+    { icon: CheckCheck,    label: "Verifications", path: "/admin/verifications" },
     { icon: FileText,      label: "Disputes",      path: "/admin/disputes" },
     { icon: TrendingUp,    label: "System Health", path: "/admin/system" },
     { icon: Settings,      label: "Settings",      path: "/admin/settings" },
@@ -206,7 +207,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }
 
   function isActive(path: string) {
-    return location === path;
+    if (path === "/brand/dashboard") return location === path;
+    if (path === "/admin") return location === path;
+    if (path === "/creator/dashboard") return location === path;
+    if (path === "/admin/users") return location === path || location.startsWith("/admin/users");
+    if (path === "/brand/campaigns") return location === path || location.startsWith("/brand/campaigns/");
+    return location === path || location.startsWith(path + "/");
   }
 
   function navigate(path: string) {

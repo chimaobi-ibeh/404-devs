@@ -42,6 +42,13 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // Request logger — helps diagnose routing issues
+  app.use((req, _res, next) => {
+    if (req.path.startsWith("/api/")) {
+      console.log(`[REQ] ${req.method} ${req.path}`);
+    }
+    next();
+  });
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
 
@@ -207,6 +214,9 @@ async function startServer() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      onError: ({ error, path }) => {
+        console.error(`[tRPC] ${path ?? "unknown"}: ${error.message}`);
+      },
     })
   );
   // development mode uses Vite, production mode uses static files
@@ -215,6 +225,13 @@ async function startServer() {
   } else {
     serveStatic(app);
   }
+
+  // Global error handler — must come after all routes/middleware.
+  // Prevents Express from returning its default HTML error page (which breaks tRPC clients).
+  app.use((err: any, _req: any, res: any, _next: any) => {
+    console.error("[Express error]", err?.message ?? err);
+    res.status(500).json({ error: err?.message ?? "Internal server error" });
+  });
 
   const port = parseInt(process.env.PORT || "3000");
   // In production always bind to the exact PORT assigned by the host (e.g. Render).

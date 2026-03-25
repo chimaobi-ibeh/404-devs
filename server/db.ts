@@ -97,6 +97,21 @@ export async function getUserById(id: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getAllUsers(opts: { limit?: number; offset?: number; role?: string; search?: string } = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [];
+  if (opts.role) conditions.push(eq(users.role, opts.role));
+  if (opts.search) conditions.push(
+    or(like(users.name, `%${opts.search}%`), like(users.email, `%${opts.search}%`))
+  );
+  return db.select().from(users)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(users.createdAt))
+    .limit(opts.limit ?? 50)
+    .offset(opts.offset ?? 0);
+}
+
 // ============================================================================
 // ADVERTISER PROFILES
 // ============================================================================
@@ -297,6 +312,28 @@ export async function updateRosterStatus(rosterId: number, status: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(campaignRosters).set({ status }).where(eq(campaignRosters.id, rosterId));
+}
+
+export async function acceptRosterEntry(rosterId: number, creatorFee: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(campaignRosters)
+    .set({ status: "accepted", creatorFee, acceptedAt: new Date() })
+    .where(eq(campaignRosters.id, rosterId));
+}
+
+export async function getCreatorSubmissionsForRoster(rosterId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(contentSubmissions).where(eq(contentSubmissions.rosterId, rosterId));
+}
+
+export async function updateContentSubmissionDraft(submissionId: number, draftUrl: string, thumbnailUrl?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(contentSubmissions)
+    .set({ draftUrl, draftThumbnailUrl: thumbnailUrl ?? null, draftStatus: "pending", submittedAt: new Date() })
+    .where(eq(contentSubmissions.id, submissionId));
 }
 
 export async function getCreatorRosterEntries(creatorProfileId: number) {
@@ -645,7 +682,15 @@ export async function getVyralMatchScores(campaignId: number, limit = 50) {
 export async function getCreatorSubscription(creatorId: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(creatorSubscriptions).where(eq(creatorSubscriptions.creatorId, creatorId)).limit(1);
+  // Prefer active subscription; if none, return the most recent one
+  const active = await db.select().from(creatorSubscriptions)
+    .where(and(eq(creatorSubscriptions.creatorId, creatorId), eq(creatorSubscriptions.status, "active")))
+    .limit(1);
+  if (active.length > 0) return active[0];
+  const result = await db.select().from(creatorSubscriptions)
+    .where(eq(creatorSubscriptions.creatorId, creatorId))
+    .orderBy(desc(creatorSubscriptions.createdAt))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -1143,6 +1188,14 @@ export async function setCreatorPro(userId: number, isPro: boolean) {
   if (!db) throw new Error("Database not available");
   await db.update(creatorProfiles)
     .set({ isPro, proExpiresAt: isPro ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null } as any)
+    .where(eq(creatorProfiles.userId, userId));
+}
+
+export async function setCreatorNinVerified(userId: number, nin: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(creatorProfiles)
+    .set({ ninVerified: true, ninNumber: nin } as any)
     .where(eq(creatorProfiles.userId, userId));
 }
 

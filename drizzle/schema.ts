@@ -81,6 +81,8 @@ export const creatorProfiles = pgTable("creator_profiles", {
   stripeConnectId: varchar("stripeConnectId", { length: 255 }),
   isPro: boolean("isPro").notNull().default(false),
   proExpiresAt: timestamp("proExpiresAt"),
+  ninVerified: boolean("ninVerified").notNull().default(false),
+  ninNumber: varchar("ninNumber", { length: 11 }), // stored for admin reference, not shown in UI
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdateFn(() => new Date()),
 });
