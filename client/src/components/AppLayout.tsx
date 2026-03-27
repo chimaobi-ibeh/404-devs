@@ -226,7 +226,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* ── Desktop sidebar ─────────────────────────────────────────── */}
       <aside className="fixed left-0 top-0 h-full w-52 bg-card border-r border-border flex-col z-40 hidden md:flex">
         <div className="p-4 border-b border-border">
-          <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-8 w-auto mb-2" />
+          <button onClick={() => setLocation("/")} className="block mb-2">
+            <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-8 w-auto" />
+          </button>
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse" />
             <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase">
@@ -271,7 +273,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
         {/* Drawer header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
-            <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-8 w-auto mb-1" />
+            <button onClick={() => navigate("/")} className="block mb-1">
+              <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-8 w-auto" />
+            </button>
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse" />
               <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase">
@@ -332,7 +336,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </button>
 
         {/* Logo — mobile only (desktop shows in sidebar) */}
-        <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-7 w-auto md:hidden" />
+        <button onClick={() => setLocation("/")} className="md:hidden">
+          <img src={isDark ? "/logo.png" : "/logo-light.png"} alt="Vyral" className="h-7 w-auto" />
+        </button>
 
         <div className="flex-1" />
 

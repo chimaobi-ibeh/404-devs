@@ -41,7 +41,8 @@
       "Bash(while read:*)",
       "Bash(do basename:*)",
       "Bash(done)",
-      "Bash(grep -l \"TODO\\\\|FIXME\\\\|deprecated\\\\|unused\" /c/Users/user/Downloads/vyral-platform/server/*.ts)"
+      "Bash(grep -l \"TODO\\\\|FIXME\\\\|deprecated\\\\|unused\" /c/Users/user/Downloads/vyral-platform/server/*.ts)",
+      "Bash(grep -E \"\\\\.\\(sql|sh\\)$\")"
     ]
   }
 }
