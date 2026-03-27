@@ -281,6 +281,7 @@ export default function OnboardingPage() {
                       type="date"
                       value={dateOfBirth}
                       onChange={(e) => setDateOfBirth(e.target.value)}
+                      onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
                     />
                   </div>
                 </>

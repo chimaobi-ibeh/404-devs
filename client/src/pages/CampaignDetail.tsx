@@ -251,7 +251,7 @@ export default function CampaignDetail() {
                         </div>
 
                         {/* Fee */}
-                        <p className="font-mono text-sm text-foreground font-bold">₦{entry.creatorFee}</p>
+                        <p className="font-mono text-sm text-foreground font-bold">₦{Number(entry.creatorFee).toLocaleString("en-NG")}</p>
 
                         {/* Actions */}
                         <div className="flex items-center gap-2 flex-wrap">
@@ -371,11 +371,11 @@ export default function CampaignDetail() {
                     </div>
                     <div className="space-y-1">
                       <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">Total Spent</p>
-                      <p className="font-mono text-2xl text-foreground font-bold">₦{analytics.totalSpent}</p>
+                      <p className="font-mono text-2xl text-foreground font-bold">₦{Number(analytics.totalSpent).toLocaleString("en-NG")}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">Total Budget</p>
-                      <p className="font-mono text-2xl text-foreground font-bold">₦{analytics.totalBudget}</p>
+                      <p className="font-mono text-2xl text-foreground font-bold">₦{Number(analytics.totalBudget).toLocaleString("en-NG")}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">Avg Engagement</p>
@@ -416,7 +416,7 @@ export default function CampaignDetail() {
               <div className="h-px bg-border" />
               <div>
                 <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-1">BUDGET</p>
-                <p className="font-mono text-xl text-foreground font-bold">₦{campaign.budget}</p>
+                <p className="font-mono text-xl text-foreground font-bold">₦{Number(campaign.budget).toLocaleString("en-NG")}</p>
               </div>
               <div>
                 <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-1">STATUS</p>
@@ -470,11 +470,11 @@ export default function CampaignDetail() {
             <div className="relative mb-4">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">₦</span>
               <input
-                type="number"
-                min="1"
-                placeholder="e.g. 25000"
-                value={acceptFee}
-                onChange={(e) => setAcceptFee(e.target.value)}
+                type="text"
+                inputMode="numeric"
+                placeholder="e.g. 25,000"
+                value={acceptFee ? Number(acceptFee).toLocaleString("en-NG") : ""}
+                onChange={(e) => setAcceptFee(e.target.value.replace(/[^\d.]/g, ""))}
                 className="w-full pl-7 pr-3 py-2 bg-background border border-border rounded font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50"
               />
             </div>

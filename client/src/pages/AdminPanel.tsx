@@ -200,7 +200,7 @@ export default function AdminPanel() {
                     {[
                       { label: "TOTAL USERS", value: stats.totalUsers ?? "—", color: "text-foreground" },
                       { label: "ACTIVE CAMPAIGNS", value: stats.activeCampaigns ?? "—", color: "text-signal" },
-                      { label: "PLATFORM REVENUE", value: `₦${(stats.platformRevenue ?? 0).toFixed(2)}`, color: "text-gold" },
+                      { label: "PLATFORM REVENUE", value: `₦${Number(stats.platformRevenue ?? 0).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`, color: "text-gold" },
                     ].map((item) => (
                       <div key={item.label} className="flex items-center justify-between px-5 py-3.5">
                         <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase">{item.label}</p>
@@ -461,7 +461,7 @@ export default function AdminPanel() {
               </div>
               <div>
                 <p className="font-mono text-[8px] text-muted-foreground tracking-widest uppercase">PLATFORM REVENUE</p>
-                <p className="font-mono text-lg text-signal font-bold">₦{((stats.platformRevenue ?? 0)).toFixed(2)}</p>
+                <p className="font-mono text-lg text-signal font-bold">₦{Number(stats.platformRevenue ?? 0).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>

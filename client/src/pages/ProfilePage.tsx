@@ -353,7 +353,7 @@ export default function ProfilePage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                       <div className="space-y-1.5">
                         <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Date of Birth</Label>
-                        <Input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
+                        <Input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} onClick={(e) => (e.target as HTMLInputElement).showPicker?.()} />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Country</Label>
@@ -522,7 +522,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Completed At</Label>
-                    <Input type="date" value={portCompletedAt} onChange={(e) => setPortCompletedAt(e.target.value)} />
+                    <Input type="date" value={portCompletedAt} onChange={(e) => setPortCompletedAt(e.target.value)} onClick={(e) => (e.target as HTMLInputElement).showPicker?.()} />
                   </div>
                 </div>
                 <div className="space-y-1.5">

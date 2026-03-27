@@ -193,10 +193,11 @@ export default function CampaignCreate() {
                     <Label htmlFor="budget">Total Budget (₦)</Label>
                     <Input
                       id="budget"
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       placeholder="0"
-                      value={formData.budget || ""}
-                      onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                      value={formData.budget ? Number(formData.budget).toLocaleString("en-NG") : ""}
+                      onChange={(e) => setFormData({ ...formData, budget: e.target.value.replace(/[^\d.]/g, "") })}
                       required
                     />
                   </div>
@@ -208,6 +209,7 @@ export default function CampaignCreate() {
                       type="date"
                       value={formData.deadline || ""}
                       onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                      onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
                       required
                     />
                   </div>
@@ -296,6 +298,7 @@ export default function CampaignCreate() {
                       type="date"
                       value={formData.postingWindowStart || ""}
                       onChange={(e) => setFormData({ ...formData, postingWindowStart: e.target.value })}
+                      onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
                     />
                   </div>
                   <div>
@@ -305,6 +308,7 @@ export default function CampaignCreate() {
                       type="date"
                       value={formData.postingWindowEnd || ""}
                       onChange={(e) => setFormData({ ...formData, postingWindowEnd: e.target.value })}
+                      onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
                     />
                   </div>
                 </div>

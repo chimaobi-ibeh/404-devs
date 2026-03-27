@@ -327,10 +327,11 @@ export default function VyralMatch() {
               Creator #{inviteModal.creatorId} — enter the fee (₦) you'll pay this creator for the campaign.
             </p>
             <input
-              type="number"
-              placeholder="e.g. 50000"
-              value={feeInput}
-              onChange={(e) => setFeeInput(e.target.value)}
+              type="text"
+              inputMode="numeric"
+              placeholder="e.g. 50,000"
+              value={feeInput ? Number(feeInput).toLocaleString("en-NG") : ""}
+              onChange={(e) => setFeeInput(e.target.value.replace(/[^\d.]/g, ""))}
               className="w-full bg-background border border-border rounded px-3 py-2 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/50 mb-4"
             />
             <div className="flex gap-2">
