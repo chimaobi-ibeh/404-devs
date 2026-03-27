@@ -2,30 +2,62 @@
 
 **Live:** https://vyral.onrender.com/
 
-Vyral is an influencer marketing platform built for the Nigerian market. Brands post campaigns, creators apply or get matched, content gets reviewed, and payments flow through Interswitch, all in one place.
+Vyral is an influencer marketing platform built for the Nigerian market. It connects brands with content creators, manages the full campaign lifecycle from briefing through content approval to payout, and processes payments via Interswitch.
 
-## The Team
+## Team
 
-**Obende Micheal Osimini** came up with the idea, handled the designs and how everything is supposed to look and feel, and helped out on the frontend side.
+| Name | Role |
+|---|---|
+| **Obende Michael Onimisi** | Product & Design — concept, UI/UX design, and frontend contributions |
+| **Ibeh Chimaobi Samuel** | Engineering — backend, database, API integrations, and full-stack implementation |
 
-**Ibeh Chimaobi Samuel** built the rest. Backend, database, payment integration, and wiring everything together.
+## What Works
 
-## What it does
+**Campaign Management**
+Brands create campaigns with a budget, content brief, target platforms, and posting requirements. Campaigns can be drafted, published, and managed through a full lifecycle dashboard.
 
-Brands create campaigns with a budget, brief, and content requirements. They can either open it up for applications, hand-pick creators, or use Vyral Match, an algorithm that scores creators by niche fit, engagement rate, and tier to suggest the best matches.
+**Creator Recruitment**
+Three modes: open applications (creators browse and apply), hand-picking from the creator directory, or Vyral Match — a scoring algorithm that ranks creators by niche alignment, engagement rate, and follower tier.
 
-Once creators are on a campaign they submit their draft content for the brand to review. The brand can approve it or ask for a revision. After the content goes live, a background monitoring job checks periodically that the post is still up and compliant. Payouts are held in escrow and released after a set window, 7 days by default and 2 days for Pro creators.
+**Content Approval Workflow**
+Creators submit draft content for brand review. Brands can approve the submission or request a revision. One free revision is included per campaign slot.
 
-There's also an admin side for verifying creator identities, handling disputes, and watching flagged content.
+**Payments via Interswitch**
+Campaign budgets are collected through Interswitch WebPay. Funds are held at the platform level and released to creators after a delay window — 7 days for standard accounts, 2 days for Pro subscribers. Payouts are disbursed via Interswitch NIP transfer to the creator's registered bank account.
 
-## Stack
+**Creator Subscriptions**
+Creators can upgrade to a Pro plan (₦1,200/month) for faster payout release and priority visibility.
 
-- React + TypeScript + Tailwind on the frontend
-- Node.js + Express + tRPC on the backend
-- PostgreSQL via Supabase, with Drizzle ORM
-- Interswitch for payments (WebPay for collections, NIP transfers for payouts)
+**Messaging**
+In-platform direct messaging between brands and creators tied to active campaigns.
 
-## Running it locally
+**Admin Panel**
+Creator identity verification queue, dispute resolution, flagged content log, and platform audit trail.
+
+**Notifications**
+In-app notification system for campaign updates, content approvals, and payout events.
+
+## Roadmap
+
+**Post Compliance Monitoring**
+Infrastructure for post-go-live monitoring is in place. The next step is integrating Apify to automatically verify that live posts remain accessible and meet campaign requirements (hashtags, brand mentions, duration). Currently the monitoring jobs run on schedule but rely on placeholder data.
+
+**Email Notifications**
+The notification system currently delivers in-app alerts only. Email delivery via a transactional provider is planned.
+
+**Campaign Creator Quotas**
+Planned feature: advertisers set a creator count alongside their budget, and Vyral automatically splits the budget equally across slots. The campaign locks once all slots are filled.
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS |
+| Backend | Node.js, Express, tRPC |
+| Database | PostgreSQL (Supabase), Drizzle ORM |
+| Payments | Interswitch WebPay (collections), Interswitch NIP (disbursements) |
+
+## Local Development
 
 ```bash
 pnpm install
@@ -33,15 +65,16 @@ pnpm db:push
 pnpm dev
 ```
 
-You'll need a `.env` file. The variables you actually need to get it running:
+Create a `.env` file with the following required variables:
 
-```
+```env
 DATABASE_URL=
 JWT_SECRET=
 ```
 
-For payments:
-```
+For payment processing:
+
+```env
 INTERSWITCH_CLIENT_ID=
 INTERSWITCH_CLIENT_SECRET=
 INTERSWITCH_MERCHANT_CODE=
@@ -49,9 +82,9 @@ INTERSWITCH_PAY_ITEM_ID=
 INTERSWITCH_ENV=sandbox
 ```
 
-Set `INTERSWITCH_MOCK=true` if you're running locally outside Nigeria, the Interswitch sandbox blocks non-Nigerian IPs.
+> Set `INTERSWITCH_MOCK=true` when running outside Nigeria. The Interswitch sandbox restricts access to Nigerian IP addresses.
 
-See `ENV_CONFIG.md` for the full list of environment variables.
+See `ENV_CONFIG.md` for the complete environment variable reference.
 
 ---
 
