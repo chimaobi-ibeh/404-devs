@@ -199,7 +199,7 @@ export default function CreatorDashboard() {
               </div>
             </div>
             <span className="font-mono text-[8px] text-primary border border-primary/40 rounded px-2 py-0.5 tracking-widest">
-              TOP 1% CREATOR
+              {vyralScore >= 95 ? "TOP 1% CREATOR" : vyralScore >= 85 ? "TOP 10% CREATOR" : vyralScore >= 70 ? "TOP 25% CREATOR" : "RISING CREATOR"}
             </span>
           </div>
         </div>

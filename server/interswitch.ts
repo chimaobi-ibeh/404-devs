@@ -21,12 +21,13 @@ const ENV_MODE = process.env.INTERSWITCH_ENV ?? "sandbox";
 const BASE_URL =
   ENV_MODE === "production"
     ? "https://api.interswitchng.com"
-    : "https://sandbox.interswitchng.com";
+    : "https://qa.interswitchng.com";
 
 const CLIENT_ID     = process.env.INTERSWITCH_CLIENT_ID     ?? "";
 const CLIENT_SECRET = process.env.INTERSWITCH_CLIENT_SECRET ?? "";
 const MERCHANT_CODE = process.env.INTERSWITCH_MERCHANT_CODE ?? "";
 const PAY_ITEM_ID   = process.env.INTERSWITCH_PAY_ITEM_ID   ?? "";
+const TERMINAL_ID   = process.env.INTERSWITCH_TERMINAL_ID   ?? "3PBL0001";
 const CURRENCY_NGN  = "566";
 
 export const interswitchConfig = {
@@ -258,9 +259,6 @@ async function getAccessToken(): Promise<string> {
 
   const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64");
   const tokenUrl = `${BASE_URL}/passport/oauth/token`;
-  console.log("[Interswitch OAuth] posting to:", tokenUrl);
-  console.log("[Interswitch OAuth] CLIENT_ID:", CLIENT_ID);
-  console.log("[Interswitch OAuth] CLIENT_SECRET length:", CLIENT_SECRET.length, "value:", CLIENT_SECRET);
   const res = await fetch(tokenUrl, {
     method: "POST",
     headers: {
@@ -271,7 +269,6 @@ async function getAccessToken(): Promise<string> {
   });
 
   const data = await res.json() as any;
-  console.log("[Interswitch OAuth] status:", res.status, "body:", JSON.stringify(data));
   if (!res.ok || !data.access_token) {
     throw new Error(data?.error_description ?? data?.message ?? `Failed to get Interswitch access token (HTTP ${res.status})`);
   }
@@ -299,29 +296,29 @@ export async function lookupBankAccount(
     return { accountName: "Account Holder", accountNumber, bankCode };
   }
 
-  const resourcePath = `/api/v2/quickteller/banks/${bankCode}/accounts/${accountNumber}`;
-  const headers = buildHeaders("GET", resourcePath, "");
+  const token = await getAccessToken();
+  // Name inquiry endpoint — uses path params, Bearer token, sandbox base URL
+  const nameEnquiryBase = ENV_MODE === "production"
+    ? "https://api.interswitchng.com"
+    : "https://sandbox.interswitchng.com";
+  const url = `${nameEnquiryBase}/api/v1/inquiry/bank-code/${bankCode}/account/${accountNumber}`;
 
-  const res = await fetch(`${BASE_URL}${resourcePath}`, {
+  const res = await fetch(url, {
     method: "GET",
-    headers,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
   });
 
-  const data = await res.json() as any;
-  console.log("[Interswitch NUBAN] status:", res.status, "body:", JSON.stringify(data));
-
+  const data = await safeJson(res);
   if (!res.ok) {
-    throw new Error(data?.description ?? data?.message ?? `Account lookup failed (${res.status})`);
+    throw new Error(data?.ResponseDescription ?? data?.message ?? `Account lookup failed (${res.status})`);
   }
 
-  const accountName =
-    data.accountName ??
-    data.beneficiaryName ??
-    data.account_name ??
-    data.name;
-
-  if (!accountName) {
-    throw new Error(data?.responseDescription ?? "Could not resolve account name");
+  const accountName = data.accountName ?? data.AccountName;
+  if (!accountName || (data.responseCode !== "00" && data.ResponseCode !== "90000")) {
+    throw new Error(data?.responseMessage ?? data?.ResponseDescription ?? "Could not resolve account name");
   }
 
   return { accountName, accountNumber, bankCode };

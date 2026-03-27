@@ -249,7 +249,7 @@ export type InsertMonitoringCheck = typeof monitoringChecks.$inferInsert;
 
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
-  campaignId: integer("campaignId").notNull(),
+  campaignId: integer("campaignId").notNull(), // NOT a FK — value 0 used for Pro subscription payments
   advertiserId: integer("advertiserId").notNull(),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
   platformFee: numeric("platformFee", { precision: 12, scale: 2 }).notNull(),
@@ -380,7 +380,7 @@ export type InsertBackgroundJob = typeof backgroundJobs.$inferInsert;
 
 export const adminLogs = pgTable("admin_logs", {
   id: serial("id").primaryKey(),
-  adminId: integer("adminId").notNull(),
+  adminId: integer("adminId").notNull(), // NOT a FK — value 0 used for system-generated log entries
   action: varchar("action", { length: 255 }).notNull(),
   entityType: varchar("entityType", { length: 100 }),
   entityId: integer("entityId"),

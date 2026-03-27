@@ -1164,6 +1164,30 @@ export async function getRecentAdminLogs(limit = 20) {
   return db.select().from(adminLogs).orderBy(desc(adminLogs.createdAt)).limit(limit);
 }
 
+export async function getFlaggedContentForAdmin(limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      checkId: monitoringChecks.id,
+      monitoringId: monitoringChecks.monitoringId,
+      flaggedReason: monitoringChecks.flaggedReason,
+      violations: monitoringChecks.violations,
+      checkDate: monitoringChecks.checkDate,
+      gracePeriodEndsAt: monitoringChecks.gracePeriodEndsAt,
+      restoredAt: monitoringChecks.restoredAt,
+      campaignId: postMonitoring.campaignId,
+      postUrl: postMonitoring.postUrl,
+      creatorId: postMonitoring.creatorId,
+      monitoringStatus: postMonitoring.status,
+    })
+    .from(monitoringChecks)
+    .innerJoin(postMonitoring, eq(monitoringChecks.monitoringId, postMonitoring.id))
+    .where(eq(monitoringChecks.flagged, true))
+    .orderBy(desc(monitoringChecks.checkDate))
+    .limit(limit);
+}
+
 export async function getPendingProSubscriptionByAdvertiserId(userId: number) {
   const db = await getDb();
   if (!db) return undefined;

@@ -18,6 +18,7 @@ export default function AdminPanel() {
   const { data: disputes, refetch: refetchDisputes } = trpc.admin.getDisputes.useQuery({ limit: 50, offset: 0 });
   const { data: pendingCreators, refetch: refetchPending } = trpc.admin.getPendingCreators.useQuery();
   const { data: adminLogs } = trpc.admin.getLogs.useQuery({ limit: 20 });
+  const { data: flaggedContent } = trpc.admin.getFlaggedContent.useQuery({ limit: 50 });
   const activeTab = routeToTab(location);
   const [selectedDisputeId, setSelectedDisputeId] = useState<number | null>(null);
   const [resolutionText, setResolutionText] = useState("");
@@ -124,10 +125,70 @@ export default function AdminPanel() {
                 <div className="bg-card border border-border rounded-lg overflow-hidden">
                   <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                     <h2 className="font-mono text-xs text-foreground tracking-widest font-bold">FLAGGED_CONTENT_LOG</h2>
+                    {flaggedContent && flaggedContent.length > 0 && (
+                      <span className="font-mono text-[8px] text-primary border border-primary/40 rounded px-2 py-0.5 tracking-widest">
+                        {flaggedContent.filter((f: any) => !f.restoredAt).length} ACTIVE
+                      </span>
+                    )}
                   </div>
-                  <div className="px-5 py-8 text-center">
-                    <p className="font-mono text-xs text-muted-foreground">No flagged content at this time.</p>
-                  </div>
+                  {flaggedContent && flaggedContent.length > 0 ? (
+                    <div className="divide-y divide-border">
+                      {flaggedContent.map((item: any) => {
+                        const isResolved = !!item.restoredAt;
+                        const inGrace = !isResolved && item.gracePeriodEndsAt && new Date(item.gracePeriodEndsAt) > new Date();
+                        return (
+                          <div key={item.checkId} className="px-5 py-4">
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`font-mono text-[8px] border rounded px-1.5 py-0.5 tracking-widest ${
+                                  isResolved ? "text-signal border-signal/40" :
+                                  inGrace ? "text-gold border-gold/40" :
+                                  "text-primary border-primary/40"
+                                }`}>
+                                  {isResolved ? "RESOLVED" : inGrace ? "GRACE PERIOD" : "FLAGGED"}
+                                </span>
+                                <span className="font-mono text-[8px] text-muted-foreground border border-border rounded px-1.5 py-0.5 tracking-widest">
+                                  CAMPAIGN #{item.campaignId}
+                                </span>
+                                <span className="font-mono text-[8px] text-muted-foreground border border-border rounded px-1.5 py-0.5 tracking-widest">
+                                  CREATOR #{item.creatorId}
+                                </span>
+                              </div>
+                              <span className="font-mono text-[8px] text-muted-foreground shrink-0">
+                                {new Date(item.checkDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              </span>
+                            </div>
+                            <p className="font-mono text-[9px] text-foreground mb-1">{item.flaggedReason}</p>
+                            {item.violations && (
+                              <p className="font-mono text-[8px] text-muted-foreground mb-1">
+                                Violations: {typeof item.violations === "string" ? item.violations : JSON.stringify(item.violations)}
+                              </p>
+                            )}
+                            {item.postUrl && (
+                              <a
+                                href={item.postUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 font-mono text-[8px] text-primary hover:underline mt-1"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" />
+                                {item.postUrl}
+                              </a>
+                            )}
+                            {inGrace && item.gracePeriodEndsAt && (
+                              <p className="font-mono text-[8px] text-gold mt-1">
+                                Grace expires: {new Date(item.gracePeriodEndsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="px-5 py-8 text-center">
+                      <p className="font-mono text-xs text-muted-foreground">No flagged content at this time.</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Platform Stats */}

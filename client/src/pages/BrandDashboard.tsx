@@ -82,7 +82,7 @@ export default function BrandDashboard() {
             <div className="bg-card border border-border rounded-lg p-6">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="font-mono text-xs text-foreground tracking-widest uppercase font-bold">ACTIVE CAMPAIGNS</h2>
-                <button onClick={() => setLocation("/brand/dashboard")} className="font-mono text-[9px] text-primary tracking-widest hover:underline">VIEW ALL RECORDS →</button>
+                <button onClick={() => setLocation("/brand/campaigns")} className="font-mono text-[9px] text-primary tracking-widest hover:underline">VIEW ALL RECORDS →</button>
               </div>
 
               {isLoading ? (
@@ -188,7 +188,10 @@ export default function BrandDashboard() {
                         >
                           REVIEW
                         </button>
-                        <button className="flex-1 py-1 border border-primary/40 font-mono text-[8px] tracking-widest text-primary hover:bg-primary/10 transition-colors rounded">
+                        <button
+                          onClick={() => setLocation(`/brand/campaigns/${campaign.id}/edit`)}
+                          className="flex-1 py-1 border border-primary/40 font-mono text-[8px] tracking-widest text-primary hover:bg-primary/10 transition-colors rounded"
+                        >
                           EDIT
                         </button>
                       </div>

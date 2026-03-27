@@ -12,8 +12,6 @@ import {
   notifyContentAutoApproved,
   notifyNoShow,
 } from "./notifications";
-import { processRefund } from "./stripe";
-
 const APIFY_API_KEY = process.env.APIFY_API_KEY || "";
 const APIFY_BASE_URL = "https://api.apify.com/v2";
 
@@ -24,8 +22,39 @@ const MONITORING_INTERVAL_MS = 48 * 60 * 60 * 1000;
 const GRACE_PERIOD_MS = 24 * 60 * 60 * 1000;
 
 // Standard payout delay (days) — can be overridden by env
-const STANDARD_PAYOUT_DELAY_DAYS = Number(process.env.STRIPE_PAYOUT_DELAY_DAYS ?? 7);
-const PRO_PAYOUT_DELAY_DAYS = Number(process.env.STRIPE_PRO_PAYOUT_DELAY_DAYS ?? 2);
+const STANDARD_PAYOUT_DELAY_DAYS = Number(process.env.PAYOUT_DELAY_DAYS ?? 7);
+const PRO_PAYOUT_DELAY_DAYS = Number(process.env.PRO_PAYOUT_DELAY_DAYS ?? 2);
+
+/**
+ * Record a refund obligation in the admin log.
+ * Interswitch WebPay does not expose a programmatic refund endpoint;
+ * refunds must be initiated manually through the Interswitch merchant portal.
+ * This function logs the obligation so admins can act on it.
+ */
+async function scheduleAdvertiserRefund(
+  campaignId: number,
+  transactionRef: string,
+  amount: number
+): Promise<void> {
+  try {
+    await db.createAdminLog({
+      adminId: 0, // system
+      action: "refund_required",
+      entityType: "campaign",
+      entityId: campaignId,
+      details: JSON.stringify({
+        transactionRef,
+        amount,
+        note: "Manual refund required via Interswitch merchant portal",
+      }),
+    });
+    console.log(
+      `[Refund] Logged refund obligation: campaignId=${campaignId}, ref=${transactionRef}, amount=₦${amount}`
+    );
+  } catch (err) {
+    console.error(`[Refund] Failed to log refund obligation for campaign ${campaignId}:`, err);
+  }
+}
 
 // ============================================================================
 // MONITORING JOB CREATION
@@ -477,7 +506,7 @@ export async function processGracePeriodExpirations(): Promise<void> {
       if (clawbackAmount > 0) {
         const payment = await db.getPaymentByCampaignId(monitoring.campaignId);
         if (payment?.stripePaymentIntentId) {
-          await processRefund(payment.stripePaymentIntentId, clawbackAmount);
+          await scheduleAdvertiserRefund(monitoring.campaignId, payment.stripePaymentIntentId, clawbackAmount);
         }
       }
 
@@ -540,7 +569,7 @@ export async function processNoShows(): Promise<void> {
       // Refund the creator's fee from escrow to the advertiser
       const payment = await db.getPaymentByCampaignId(campaign.id);
       if (payment?.stripePaymentIntentId) {
-        await processRefund(payment.stripePaymentIntentId, Number(roster.creatorFee));
+        await scheduleAdvertiserRefund(campaign.id, payment.stripePaymentIntentId, Number(roster.creatorFee));
       }
 
       // advertiserId on campaigns is the user ID directly

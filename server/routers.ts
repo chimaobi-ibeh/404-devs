@@ -733,8 +733,8 @@ const creatorRouter = router({
         } else {
           // Regular post, no monitoring duration — release payout with standard delay
           const delayDays = creatorProfile.isPro
-            ? Number(process.env.STRIPE_PRO_PAYOUT_DELAY_DAYS ?? 2)
-            : Number(process.env.STRIPE_PAYOUT_DELAY_DAYS ?? 7);
+            ? Number(process.env.PRO_PAYOUT_DELAY_DAYS ?? 2)
+            : Number(process.env.PAYOUT_DELAY_DAYS ?? 7);
           const releaseDate = new Date(Date.now() + delayDays * 24 * 60 * 60 * 1000);
           const rosterEntry = await db.getRosterEntry(submission.rosterId);
           if (rosterEntry) {
@@ -951,26 +951,6 @@ const creatorRouter = router({
   getBankAccount: protectedProcedure.query(async ({ ctx }) => {
     return db.getCreatorBankDetails(ctx.user.id);
   }),
-
-  verifyBankAccount: protectedProcedure
-    .input(z.object({ accountNumber: z.string().length(10), bankCode: z.string().min(1) }))
-    .mutation(async ({ input }) => {
-      const { lookupBankAccount } = await import("./interswitch");
-      const result = await lookupBankAccount(input.accountNumber, input.bankCode);
-      return { accountName: result.accountName };
-    }),
-
-  verifyNin: protectedProcedure
-    .input(z.object({ nin: z.string().length(11) }))
-    .mutation(async ({ ctx, input }) => {
-      const { verifyNin: interswitchVerifyNin } = await import("./interswitch");
-      const result = await interswitchVerifyNin(input.nin);
-      if (!result.verified) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: result.message ?? "NIN verification failed" });
-      }
-      await db.setCreatorNinVerified(ctx.user.id, input.nin);
-      return { verified: true, ninName: result.ninName };
-    }),
 
   requestPayout: protectedProcedure.mutation(async ({ ctx }) => {
     const creatorProfile = await db.getCreatorProfile(ctx.user.id);
@@ -1331,6 +1311,13 @@ const adminRouter = router({
     .query(async ({ ctx, input }) => {
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
       return db.getAllUsers({ limit: input.limit, offset: input.offset, role: input.role, search: input.search });
+    }),
+
+  getFlaggedContent: protectedProcedure
+    .input(z.object({ limit: z.number().default(50) }))
+    .query(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      return db.getFlaggedContentForAdmin(input.limit);
     }),
 });
 

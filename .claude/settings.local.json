@@ -27,7 +27,21 @@
       "Bash(grep -n \"CASH OUT\\\\|Stripe\\\\|Payment\\\\|accept\\\\|acceptMatch\" \"c:/Users/user/Downloads/vyral-platform/client/src/pages/\"*.tsx)",
       "Bash(grep -r \"const.*data.*=\" /c/Users/user/Downloads/vyral-platform/client/src/pages/*.tsx)",
       "Bash(ls -1 /c/Users/user/Downloads/vyral-platform/client/src/pages/*.tsx)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,'''':'''',v\\) for k,v in d.get\\(''''scripts'''',{}\\).items\\(\\)]\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,'''':'''',v\\) for k,v in d.get\\(''''scripts'''',{}\\).items\\(\\)]\")",
+      "Bash(node -e \"const p = require\\(''./node_modules/@trpc/server/package.json''\\); console.log\\(p.version\\)\")",
+      "WebFetch(domain:docs.interswitchgroup.com)",
+      "WebFetch(domain:isw-api.readme.io)",
+      "WebSearch",
+      "WebFetch(domain:developer.interswitchgroup.com)",
+      "WebFetch(domain:sandbox.interswitchng.com)",
+      "Bash(ls -la /c/Users/user/Downloads/vyral-platform/*.md /c/Users/user/Downloads/vyral-platform/*.json /c/Users/user/Downloads/vyral-platform/*.config.*)",
+      "Read(//c/Users/user/Downloads/vyral-platform/**)",
+      "Bash(ls -la /c/Users/user/Downloads/vyral-platform/*.md)",
+      "Bash(find /c/Users/user/Downloads/vyral-platform -maxdepth 2 -name *.test.ts -o -name *.test.tsx)",
+      "Bash(while read:*)",
+      "Bash(do basename:*)",
+      "Bash(done)",
+      "Bash(grep -l \"TODO\\\\|FIXME\\\\|deprecated\\\\|unused\" /c/Users/user/Downloads/vyral-platform/server/*.ts)"
     ]
   }
 }

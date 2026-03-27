@@ -5,7 +5,7 @@ import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, Shield, User, ChevronDown, ChevronUp, Plus, Trash2, Camera, CreditCard, Check, Loader2, BadgeCheck } from "lucide-react";
+import { Save, Shield, User, ChevronDown, ChevronUp, Plus, Trash2, Camera, CreditCard, Check } from "lucide-react";
 import { toast } from "sonner";
 
 const NIGERIAN_BANKS = [
@@ -599,13 +599,8 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Bank account + NIN (creators only) */}
-        {role === "creator" && (
-          <>
-            <BankAccountSection />
-            <NinSection ninVerified={(creatorProfile as any)?.ninVerified ?? false} />
-          </>
-        )}
+        {/* Bank account (creators only) */}
+        {role === "creator" && <BankAccountSection />}
 
         {/* Account info (read-only) */}
         <div className="bg-card border border-border rounded-lg p-6 mt-6">
@@ -637,13 +632,6 @@ export default function ProfilePage() {
 function BankAccountSection() {
   const { data: bankAccount, refetch } = trpc.creator.getBankAccount.useQuery();
   const updateBank = trpc.creator.updateBankAccount.useMutation({ onSuccess: () => { refetch(); setEditing(false); } });
-  const verifyBank = trpc.creator.verifyBankAccount.useMutation({
-    onSuccess: (data) => {
-      setAccountName(data.accountName);
-      toast.success(`Account verified: ${data.accountName}`);
-    },
-    onError: (err) => toast.error(err.message),
-  });
 
   const [bankCode, setBankCode] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
@@ -658,18 +646,10 @@ function BankAccountSection() {
     }
   }, [bankAccount]);
 
-  // Auto-verify when account number hits 10 digits and a bank is selected
-  useEffect(() => {
-    if (accountNumber.length === 10 && bankCode) {
-      setAccountName("");
-      verifyBank.mutate({ accountNumber, bankCode });
-    }
-  }, [accountNumber, bankCode]);
-
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!accountName) { toast.error("Account name not verified yet"); return; }
-    updateBank.mutate({ bankCode, accountNumber, accountName });
+    if (!accountName.trim()) { toast.error("Please enter your account name"); return; }
+    updateBank.mutate({ bankCode, accountNumber, accountName: accountName.trim() });
   }
 
   const bankName = NIGERIAN_BANKS.find((b) => b.code === bankCode)?.name;
@@ -714,7 +694,7 @@ function BankAccountSection() {
             <Label className="font-mono text-[9px] tracking-widest uppercase text-muted-foreground">Bank</Label>
             <select
               value={bankCode}
-              onChange={(e) => { setBankCode(e.target.value); setAccountName(""); }}
+              onChange={(e) => setBankCode(e.target.value)}
               required
               className="w-full bg-background border border-border rounded px-3 py-2 font-mono text-xs text-foreground focus:outline-none focus:border-foreground/50"
             >
@@ -728,29 +708,20 @@ function BankAccountSection() {
             <Label className="font-mono text-[9px] tracking-widest uppercase text-muted-foreground">Account Number (10 digits)</Label>
             <Input
               value={accountNumber}
-              onChange={(e) => { setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 10)); setAccountName(""); }}
+              onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
               placeholder="0123456789"
               maxLength={10}
               required
             />
           </div>
-          {/* Account name — auto-filled by verification */}
           <div className="space-y-1.5">
             <Label className="font-mono text-[9px] tracking-widest uppercase text-muted-foreground">Account Name</Label>
-            <div className="relative">
-              <Input
-                value={verifyBank.isPending ? "" : accountName}
-                readOnly
-                placeholder={verifyBank.isPending ? "Verifying…" : "Auto-filled after account number entry"}
-                className="bg-muted/40 text-foreground"
-              />
-              {verifyBank.isPending && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />
-              )}
-              {accountName && !verifyBank.isPending && (
-                <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-signal" />
-              )}
-            </div>
+            <Input
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              placeholder="Enter your account name"
+              required
+            />
           </div>
           {updateBank.error && (
             <p className="font-mono text-[9px] text-destructive">{updateBank.error.message}</p>
@@ -758,7 +729,7 @@ function BankAccountSection() {
           <div className="flex gap-2 pt-1">
             <button
               type="submit"
-              disabled={updateBank.isPending || !accountName}
+              disabled={updateBank.isPending}
               className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground font-mono text-[9px] tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               <Check className="w-3 h-3" />
@@ -777,69 +748,9 @@ function BankAccountSection() {
         </form>
       )}
       <p className="font-mono text-[9px] text-muted-foreground mt-3">
-        Account name is verified automatically via your bank. Your earnings will be sent here.
+        Your earnings will be sent to this account.
       </p>
     </div>
   );
 }
 
-// ── NIN Verification Section ──────────────────────────────────────────────────
-
-function NinSection({ ninVerified }: { ninVerified: boolean }) {
-  const [nin, setNin] = useState("");
-  const [done, setDone] = useState(ninVerified);
-  const verifyNin = trpc.creator.verifyNin.useMutation({
-    onSuccess: (data) => {
-      setDone(true);
-      toast.success(`NIN verified${data.ninName ? ` — ${data.ninName}` : ""}`);
-    },
-    onError: (err) => toast.error(err.message),
-  });
-
-  if (done) {
-    return (
-      <div className="bg-card border border-border rounded-lg p-6 mt-6">
-        <div className="flex items-center gap-2 mb-1">
-          <BadgeCheck className="w-4 h-4 text-signal" />
-          <span className="font-mono text-xs tracking-widest uppercase text-foreground font-bold">Identity (NIN)</span>
-        </div>
-        <p className="font-mono text-xs text-signal flex items-center gap-1.5 mt-3">
-          <Check className="w-3.5 h-3.5" /> NIN VERIFIED
-        </p>
-        <p className="font-mono text-[9px] text-muted-foreground mt-1">Your identity has been verified successfully.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-card border border-border rounded-lg p-6 mt-6">
-      <div className="flex items-center gap-2 mb-1">
-        <BadgeCheck className="w-4 h-4 text-muted-foreground" />
-        <span className="font-mono text-xs tracking-widest uppercase text-foreground font-bold">Identity Verification (NIN)</span>
-      </div>
-      <p className="font-mono text-[9px] text-muted-foreground mb-4">
-        Enter your 11-digit National Identification Number to verify your identity. Required before your first payout.
-      </p>
-      <form
-        onSubmit={(e) => { e.preventDefault(); verifyNin.mutate({ nin }); }}
-        className="flex gap-2"
-      >
-        <Input
-          value={nin}
-          onChange={(e) => setNin(e.target.value.replace(/\D/g, "").slice(0, 11))}
-          placeholder="12345678901"
-          maxLength={11}
-          className="font-mono text-xs max-w-[180px]"
-        />
-        <button
-          type="submit"
-          disabled={nin.length !== 11 || verifyNin.isPending}
-          className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground font-mono text-[9px] tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
-        >
-          {verifyNin.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3 h-3" />}
-          {verifyNin.isPending ? "VERIFYING…" : "VERIFY NIN"}
-        </button>
-      </form>
-    </div>
-  );
-}

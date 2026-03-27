@@ -67,9 +67,8 @@ Stripe keys are pre-configured by Manus in test mode:
 - `STRIPE_WEBHOOK_SECRET` - Webhook signing secret
 
 **Configuration:**
-- `STRIPE_PLATFORM_FEE_PERCENTAGE` - Platform fee (default: 20%)
-- `STRIPE_PAYOUT_DELAY_DAYS` - Days before payout (default: 7)
-- `STRIPE_PRO_PAYOUT_DELAY_DAYS` - Days for Pro users (default: 2)
+- `PAYOUT_DELAY_DAYS` - Days before standard payout release (default: 7)
+- `PRO_PAYOUT_DELAY_DAYS` - Days before Pro creator payout release (default: 2)
 
 ## Platform Configuration
 

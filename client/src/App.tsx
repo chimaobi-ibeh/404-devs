@@ -122,7 +122,6 @@ function Router() {
       <Route path="/admin"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>
       <Route path="/admin/verifications"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>
       <Route path="/admin/disputes"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>
-      <Route path="/admin/system"><ProtectedRoute component={AdminPanel} allow="admin" /></Route>
       <Route path="/admin/users"><ProtectedRoute component={AdminUsersPage} allow="admin" /></Route>
       <Route path="/admin/settings"><ProtectedRoute component={AdminSettingsPage} allow="admin" /></Route>
 

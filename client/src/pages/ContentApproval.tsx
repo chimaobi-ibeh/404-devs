@@ -32,7 +32,7 @@ export default function ContentApproval() {
     },
   });
 
-  const pending = (submissions as any[]).filter((s) => s.draftStatus === "draft_submitted" || s.draftStatus === "pending");
+  const pending = (submissions as any[]).filter((s) => s.draftStatus === "pending");
   const sub = pending[selectedIndex] ?? (submissions as any[])[selectedIndex];
 
   if (!campaignId) {
@@ -197,7 +197,7 @@ export default function ContentApproval() {
               )}
 
               {/* Feedback & Actions */}
-              {(sub.draftStatus === "draft_submitted" || sub.draftStatus === "pending") && (
+              {sub.draftStatus === "pending" && (
                 <div className="bg-card border border-border rounded-lg p-5">
                   <p className="font-mono text-[9px] text-muted-foreground tracking-widest uppercase mb-3">FEEDBACK / NOTES</p>
                   <textarea

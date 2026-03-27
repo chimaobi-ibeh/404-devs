@@ -4,10 +4,10 @@ import AppLayout from "@/components/AppLayout";
 import { FileText, ExternalLink } from "lucide-react";
 
 const STATUS_STYLES: Record<string, { label: string; classes: string }> = {
-  draft_submitted:    { label: "PENDING REVIEW", classes: "text-gold border-gold/40 bg-gold/5" },
-  pending:            { label: "PENDING",         classes: "text-gold border-gold/40 bg-gold/5" },
+  pending:            { label: "PENDING REVIEW", classes: "text-gold border-gold/40 bg-gold/5" },
   approved:           { label: "APPROVED",        classes: "text-signal border-signal/40 bg-signal/5" },
   revision_requested: { label: "REVISION",        classes: "text-destructive border-destructive/40 bg-destructive/5" },
+  rejected:           { label: "REJECTED",        classes: "text-destructive border-destructive/40 bg-destructive/5" },
 };
 
 function CampaignSubmissions({ campaignId, campaignTitle }: { campaignId: number; campaignTitle: string }) {
@@ -25,7 +25,7 @@ function CampaignSubmissions({ campaignId, campaignTitle }: { campaignId: number
   if (!submissions.length) return null;
 
   const pending = (submissions as any[]).filter(
-    (s) => s.draftStatus === "draft_submitted" || s.draftStatus === "pending"
+    (s) => s.draftStatus === "pending"
   ).length;
 
   return (
